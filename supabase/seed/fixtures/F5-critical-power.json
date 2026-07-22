@@ -1,0 +1,25 @@
+{
+  "id": "F5",
+  "description": "Critical power fit (07-ACCEPTANCE.md §B F5)",
+  "input": {
+    "sport": "bike",
+    "points": [
+      { "durationS": 180, "power": 320, "sessionId": "s1", "date": "2026-06-01T09:00:00Z" },
+      { "durationS": 300, "power": 290, "sessionId": "s1", "date": "2026-06-01T09:00:00Z" },
+      { "durationS": 600, "power": 262, "sessionId": "s2", "date": "2026-06-10T09:00:00Z" },
+      { "durationS": 900, "power": 252, "sessionId": "s2", "date": "2026-06-10T09:00:00Z" }
+    ]
+  },
+  "expected": {
+    "provenance": "cp_model_fit",
+    "r2Min": 0.95,
+    "wPrimeRange": [5000, 35000],
+    "cpApprox": 236.4,
+    "wPrimeApprox": 15282,
+    "confidenceApprox": 0.7
+  },
+  "negative": {
+    "description": "A 45 s point must be excluded by the duration filter, not fitted.",
+    "extraPoint": { "durationS": 45, "power": 600, "sessionId": "s3", "date": "2026-06-11T09:00:00Z" }
+  }
+}

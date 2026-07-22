@@ -1,0 +1,6 @@
+{
+  "id": "F3",
+  "description": "HRmax formula correctness (07-ACCEPTANCE.md §B F3)",
+  "input": { "age": 30 },
+  "expected": { "hunt": 191.8, "tanaka": 187.0, "usedFormula": "HUNT", "provenance": "population_formula" }
+}

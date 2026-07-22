@@ -1,0 +1,12 @@
+{
+  "id": "F6",
+  "description": "Load metrics (07-ACCEPTANCE.md §B F6)",
+  "bike": { "durationS": 3600, "np": 210, "cp": 250, "expectedTss": 70.6 },
+  "run": { "durationS": 3600, "gapSpeed": 3.6, "lt2Speed": 4.0, "expectedRTss": 81.0 },
+  "swim": {
+    "durationS": 2400,
+    "cssSpeed": 1.2,
+    "actualSpeed": 1.05,
+    "note": "Value not pinned by the fixture; asserts the cubic exponent is applied. See DECISIONS.md D-SWIM-IF."
+  }
+}

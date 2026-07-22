@@ -1,0 +1,13 @@
+{
+  "id": "F1",
+  "description": "Zone construction, threshold-anchored (07-ACCEPTANCE.md §B F1)",
+  "input": { "hrMax": 186, "hrRest": 44, "lt1Hr": 142, "lt2Hr": 168 },
+  "expected": {
+    "mode": "threshold_anchored",
+    "hrReserve": 142,
+    "z1UpperBpm": 131,
+    "z2Upper": { "bpm": 142, "pctHRR": 0.69 },
+    "z3Upper": { "bpm": 155, "pctHRR": 0.782 },
+    "z4Upper": { "bpm": 168, "pctHRR": 0.873 }
+  }
+}

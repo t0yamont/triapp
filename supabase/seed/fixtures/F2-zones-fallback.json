@@ -1,0 +1,11 @@
+{
+  "id": "F2",
+  "description": "Zone construction, HRR fallback (07-ACCEPTANCE.md §B F2)",
+  "input": { "hrMax": 190, "hrMaxProvenance": "population_formula", "hrRest": 50 },
+  "expected": {
+    "mode": "hrr_fallback",
+    "hrReserve": 140,
+    "boundaryBpms": [120, 134, 148, 162, 176],
+    "anchorConfidenceBelow": 0.3
+  }
+}

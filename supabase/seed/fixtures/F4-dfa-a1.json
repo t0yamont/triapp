@@ -1,0 +1,16 @@
+{
+  "id": "F4",
+  "description": "DFA-a1 threshold detection (07-ACCEPTANCE.md §B F4)",
+  "expected": {
+    "lt1Alpha1": 0.75,
+    "lt2Alpha1": 0.5,
+    "singleProvenance": "dfa_a1_single",
+    "singleConfidence": 0.5,
+    "multiProvenance": "dfa_a1_multi",
+    "multiConfidence": 0.75,
+    "artefactRejectPct": 5,
+    "negativeArtefactPct": 8,
+    "dfaWhiteNoiseAlpha": 0.5,
+    "dfaBrownianAlpha": 1.5
+  }
+}

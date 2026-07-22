@@ -1,0 +1,25 @@
+{
+  "name": "@ironflow/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "IronFlow shared business logic. Contains physio/, THE ENGINE — pure functions, no I/O. See 03-ALGORITHM.md.",
+  "type": "module",
+  "exports": {
+    "./physio": "./physio/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@ironflow/config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "fast-check": "^3.23.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

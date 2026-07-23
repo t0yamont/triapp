@@ -1,6 +1,12 @@
 # dependencies
 node_modules/
 .pnpm-store/
+# npm lockfile — this is a pnpm workspace
+package-lock.json
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
 
 # build outputs
 dist/

@@ -17,9 +17,12 @@ This repository is being built in verifiable increments against the roadmap in
 - **`packages/core/physio` — the pure engine core** (Phase 3): athlete model, threshold
   detection, zones, and load metrics. Pure functions, no React/Supabase/network/clock.
   **100% branch coverage; all applicable golden fixtures and property tests pass.**
+- **Database layer** (Phase 1) — Postgres migrations for all 21 tables with **complete
+  row-level security** and an automated isolation test that proves each athlete sees only
+  their own rows on every table. See [`supabase/`](./supabase).
 
-Cloud infrastructure (Supabase schema + RLS, Next.js web app, auth, onboarding, ingest) is
-scoped for subsequent increments — see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`).
+Remaining Phase 1/2 (the `api-client` package, Next.js web app, auth UI, onboarding, and
+activity ingest) are the next increments — see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`).
 
 ### What the engine can do now
 
@@ -46,7 +49,10 @@ ironflow/
 ├── packages/
 │   ├── core/physio/          # THE ENGINE — pure, see spec/03-ALGORITHM.md §1
 │   └── config/               # shared tsconfig
-├── supabase/seed/fixtures/   # golden fixtures (F1–F6) as JSON contract tests
+├── supabase/
+│   ├── migrations/           # Postgres schema + complete RLS (Phase 1)
+│   ├── seed/fixtures/        # golden fixtures (F1–F6) as JSON contract tests
+│   └── tests/                # automated RLS isolation test (Phase 1 gate)
 ├── examples/engine-demo.mjs  # runnable plain-Node walkthrough
 ├── CLAUDE.md                 # repo rules for Claude Code
 └── DECISIONS.md              # deviation & decision log

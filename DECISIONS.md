@@ -32,11 +32,40 @@ follow-ups.
 
 **Deviation.** `03-ALGORITHM.md` §2.1 lists the provenance ladder but omits the §2.2
 "highest valid observed HR in the last 12 months" source, which §2.2 assigns confidence
-0.80. Added `observed_max: 0.80` to `PROVENANCE_CONFIDENCE` / the `Provenance` type.
+0.80. Added `observed_max: 0.80` to `PROVENANCE_CONFIDENCE` / the `Provenance` type, **and**
+to the `provenance` enum in the database migration (the spec SQL omitted it too), so an
+`hr_max` anchor derived from an observation persists with the correct provenance.
 
 **Reason.** The source is defined by the spec with an explicit confidence; representing it as
 `field_test` (0.85) would misstate its trust and risk a silent confidence upgrade during
 reconciliation (breaking I14). The 0.80 value is the spec's, not invented.
+
+---
+
+## D-RLS-COMPLETE — Completed the RLS policy set
+
+**Deviation.** `spec/04-DATA-MODEL.sql` enables RLS on all 21 tables but writes policies for
+only `profiles`, `activities`, and `activity_streams` ("Example … replicate for each"). A
+table with RLS enabled and **no** policy denies all access. Migration `0003` therefore writes
+the full set: an owner policy on every table (`athlete_id = auth.uid()`, `id = auth.uid()`
+for profiles), parent-ownership policies for the four child tables without an `athlete_id`
+(`activity_sources`, `activity_laps`, `activity_streams` → `activities`; `plan_weeks` →
+`training_plans`), a both-parties policy on `coach_athlete_relationships`, and the inert
+coach-read SELECT policies (present, returns no rows until coach mode ships — ARCH §6).
+
+**Verification.** An automated isolation test (`supabase/tests/`) applies the migrations to a
+real Postgres and asserts athlete A sees only its own row in every table, athlete B likewise,
+and an unauthenticated caller sees nothing. It passes (Phase 1 gate).
+
+---
+
+## D-DB-VERIFY — Local DB verification without Docker Hub
+
+**Decision.** The committed RLS runner uses Docker, but Docker Hub's CDN is blocked by this
+environment's egress policy (a 403 the proxy README says to report, not route around). The
+migrations + RLS were instead verified against a real PostgreSQL 18.4 obtained from the
+allowlisted npm registry (`embedded-postgres`), run as an unprivileged user. Same SQL, same
+result: all 21 tables isolate by athlete. Both paths are documented in `supabase/tests/README.md`.
 
 ---
 

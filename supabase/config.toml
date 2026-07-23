@@ -1,0 +1,54 @@
+# Supabase CLI config. `project_id` is your project ref (the subdomain of your project
+# URL, e.g. abcdefgh in https://abcdefgh.supabase.co). Set it, then link the CLI:
+#   supabase login          # opens a browser; stores a personal access token
+#   supabase link --project-ref <your-project-ref>
+#   supabase db push        # applies supabase/migrations/*
+#
+# Region/data residency (02-ARCHITECTURE.md §7): choose an EU/UK region when creating the
+# project — it cannot be changed later. That is set in the dashboard, not this file.
+project_id = "REPLACE_WITH_PROJECT_REF"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+# Match your project's Postgres major version (Supabase projects are 15+; spec says 15+).
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+minimum_password_length = 8
+
+# Age gate: 16+ (UK GDPR age of consent). Enforced in onboarding; documented here for intent.
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+# Phase 1 providers (08-ROADMAP.md): email/password, Google, Apple. Enable per environment
+# and supply secrets via env(...) references — NEVER commit real secret values here.
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+
+[auth.external.apple]
+enabled = false
+client_id = ""
+secret = "env(SUPABASE_AUTH_APPLE_SECRET)"

@@ -4,7 +4,7 @@ Supabase Edge Functions (Deno) are the I/O boundary for ingest and background jo
 (02-ARCHITECTURE.md §3). They stay thin: all parsing/normalisation/dedup logic lives in the
 pure, unit-tested `@ironflow/core/ingest` package and is *composed* here, never duplicated.
 
-## `ingest` (planned — wiring pending the applied DB)
+## `ingest` (committed — activate once the migrations are applied)
 
 The activity-ingest flow, per `05-INTEGRATIONS.md` and the data flow in §3:
 
@@ -20,12 +20,17 @@ upload / provider webhook (FIT | TCX | GPX)
   → activity_sources (every provider that delivered this session)
 ```
 
-**Status.** The pure pipeline (`packages/core/ingest`) is implemented and unit-tested:
-FIT (incl. RR intervals for DFA-a1), TCX and GPX parsing, normalization, idempotency and
-deduplication. The Deno Edge Function that composes it with the database is intentionally
-*not* committed yet: it needs the migrations applied to a real project (currently on hold)
-and the `@ironflow/core/api-client` package, so it can't be run or verified in isolation.
-It is the immediate next step once the schema is live.
+**Status.** Implemented and composed end-to-end:
+- `packages/core/ingest` — FIT (incl. RR intervals), TCX, GPX parsing, normalization,
+  idempotency, deduplication. Unit-tested.
+- `packages/api-client` — typed Supabase clients + `upsertParsedActivity`, the idempotent,
+  dedup-aware write path, verified against generated `Database` types by `tsc`.
+- `ingest/index.ts` — the Deno handler wiring them together (auth from JWT → parse → upsert).
+
+The one thing not verifiable here is *runtime*: it needs the migrations applied to a real
+project (currently on hold) and Supabase's env vars. `parseActivityFile` and
+`upsertParsedActivity` are typechecked and unit-tested; the handler is thin glue over them.
+Activate with `supabase functions deploy ingest` once the schema is live.
 
 RR-interval streams are what make DFA-a1 threshold detection possible (03-ALGORITHM.md §6.1),
 so the parser preserves them end-to-end and the normalizer flags `hrSource: 'chest_strap'`

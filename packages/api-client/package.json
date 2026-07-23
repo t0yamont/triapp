@@ -1,0 +1,27 @@
+{
+  "name": "@ironflow/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The only place that talks to Supabase / third-party APIs (CLAUDE.md §Architecture).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "gen:types": "node scripts/gen-database-types.mjs > src/database.types.ts"
+  },
+  "dependencies": {
+    "@ironflow/core": "workspace:*",
+    "@supabase/supabase-js": "^2.47.10",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@ironflow/config": "workspace:*",
+    "@types/node": "^22.10.0",
+    "pg": "^8.13.1",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

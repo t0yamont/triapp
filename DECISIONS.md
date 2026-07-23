@@ -59,6 +59,21 @@ and an unauthenticated caller sees nothing. It passes (Phase 1 gate).
 
 ---
 
+## D-TYPEGEN — `Database` types generated without Docker
+
+**Decision.** `supabase gen types` runs its introspection in a container, which fails here
+(Docker Hub is egress-blocked). Instead, `packages/api-client/scripts/gen-database-types.mjs`
+introspects `information_schema` / `pg_catalog` directly via `pg` and emits the same Supabase
+`Database` shape. It was run against a local Postgres with the migrations applied to produce
+`src/database.types.ts` (all 21 tables + 8 enums, incl. `observed_max`).
+
+**Reason.** Accurate, complete types with no Docker dependency, and reusable: the team can
+regenerate against their linked project with `DATABASE_URL=<db-url> pnpm --filter
+@ironflow/api-client gen:types`. The api-client repository queries typecheck against these,
+so schema/column drift is caught at compile time.
+
+---
+
 ## D-DB-VERIFY — Local DB verification without Docker Hub
 
 **Decision.** The committed RLS runner uses Docker, but Docker Hub's CDN is blocked by this

@@ -22,11 +22,16 @@ This repository is being built in verifiable increments against the roadmap in
   their own rows on every table. See [`supabase/`](./supabase).
 - **Activity ingest** (Phase 2) — `packages/core/ingest`: pure **FIT / TCX / GPX parsers**
   (FIT decoded to streams incl. RR intervals for DFA-a1), normalization, idempotency, and
-  cross-provider deduplication. Unit-tested; the Edge Function that composes it with the DB
-  is next (see [`supabase/functions/`](./supabase/functions)).
+  cross-provider deduplication. Unit-tested.
+- **`packages/api-client`** — the only place that talks to Supabase: typed clients
+  (anon + service-role, with a browser guard), generated `Database` types, Zod-validated
+  env, and the idempotent, dedup-aware ingest write path (`upsertParsedActivity`), all
+  verified against the schema by `tsc`. The ingest **Edge Function** composes it with the
+  parser (see [`supabase/functions/`](./supabase/functions)).
 
-Remaining Phase 1/2 (the `api-client` package, the ingest Edge Function, Next.js web app,
-auth UI, onboarding) are the next increments — see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`).
+Remaining Phase 1/2 (the Next.js web app, auth UI, onboarding) are the next increments —
+see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`). The Edge Function runs once the migrations
+are applied.
 
 ### What the engine can do now
 
@@ -54,6 +59,7 @@ ironflow/
 │   ├── core/
 │   │   ├── physio/           # THE ENGINE — pure, see spec/03-ALGORITHM.md §1
 │   │   └── ingest/           # FIT/TCX/GPX parsers, normalize, dedupe — pure, tested
+│   ├── api-client/           # the only place that talks to Supabase; typed to the schema
 │   └── config/               # shared tsconfig
 ├── supabase/
 │   ├── migrations/           # Postgres schema + complete RLS (Phase 1)

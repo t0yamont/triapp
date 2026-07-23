@@ -34,3 +34,4 @@ export * from './distribution/policy.js';
 export * from './plan/types.js';
 export * from './plan/invariants.js';
 export * from './plan/taper.js';
+export * from './plan/macro.js';

@@ -5,7 +5,8 @@
   "description": "IronFlow shared business logic. Contains physio/, THE ENGINE — pure functions, no I/O. See 03-ALGORITHM.md.",
   "type": "module",
   "exports": {
-    "./physio": "./physio/index.ts"
+    "./physio": "./physio/index.ts",
+    "./ingest": "./ingest/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -13,6 +14,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.5.1"
   },
   "devDependencies": {
     "@ironflow/config": "workspace:*",

@@ -18,7 +18,7 @@ import {
   fitCriticalPower,
   fitnessSeries,
   sportAnchorConfidence,
-} from '../packages/core/dist/index.js';
+} from '../packages/core/dist/physio/index.js';
 
 const NOW = '2026-07-22T00:00:00Z';
 const pct = (x) => `${(x * 100).toFixed(1)}%`;

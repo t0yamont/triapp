@@ -5,13 +5,16 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['physio/**/*.test.ts'],
+    include: ['physio/**/*.test.ts', 'ingest/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['physio/**/*.ts'],
-      // types.ts is pure type declarations (no runtime statements); index.ts is a barrel.
-      exclude: ['physio/**/*.test.ts', 'physio/index.ts', 'physio/**/index.ts', 'physio/types.ts'],
-      thresholds: { branches: 100, functions: 100, lines: 100, statements: 100 },
+      include: ['physio/**/*.ts', 'ingest/**/*.ts'],
+      // types.ts files are pure type declarations (no runtime); index.ts files are barrels.
+      exclude: ['**/*.test.ts', '**/index.ts', 'physio/types.ts', 'ingest/types.ts'],
+      // physio is the spec-mandated 100%-branch engine; ingest is reported but not gated here.
+      thresholds: {
+        'physio/**/*.ts': { branches: 100, functions: 100, lines: 100, statements: 100 },
+      },
       reporter: ['text', 'html'],
     },
   },

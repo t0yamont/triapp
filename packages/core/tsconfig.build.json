@@ -2,13 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "rootDir": "physio",
+    "rootDir": ".",
     "outDir": "dist",
     "noEmit": false,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["physio/**/*.ts"],
-  "exclude": ["physio/**/*.test.ts", "physio/__tests__/**"]
+  "include": ["physio/**/*.ts", "ingest/**/*.ts"],
+  "exclude": ["**/*.test.ts", "**/__tests__/**"]
 }

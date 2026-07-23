@@ -20,9 +20,13 @@ This repository is being built in verifiable increments against the roadmap in
 - **Database layer** (Phase 1) — Postgres migrations for all 21 tables with **complete
   row-level security** and an automated isolation test that proves each athlete sees only
   their own rows on every table. See [`supabase/`](./supabase).
+- **Activity ingest** (Phase 2) — `packages/core/ingest`: pure **FIT / TCX / GPX parsers**
+  (FIT decoded to streams incl. RR intervals for DFA-a1), normalization, idempotency, and
+  cross-provider deduplication. Unit-tested; the Edge Function that composes it with the DB
+  is next (see [`supabase/functions/`](./supabase/functions)).
 
-Remaining Phase 1/2 (the `api-client` package, Next.js web app, auth UI, onboarding, and
-activity ingest) are the next increments — see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`).
+Remaining Phase 1/2 (the `api-client` package, the ingest Edge Function, Next.js web app,
+auth UI, onboarding) are the next increments — see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`).
 
 ### What the engine can do now
 
@@ -47,7 +51,9 @@ node examples/engine-demo.mjs
 ironflow/
 ├── spec/                     # the build specification (source of truth), committed
 ├── packages/
-│   ├── core/physio/          # THE ENGINE — pure, see spec/03-ALGORITHM.md §1
+│   ├── core/
+│   │   ├── physio/           # THE ENGINE — pure, see spec/03-ALGORITHM.md §1
+│   │   └── ingest/           # FIT/TCX/GPX parsers, normalize, dedupe — pure, tested
 │   └── config/               # shared tsconfig
 ├── supabase/
 │   ├── migrations/           # Postgres schema + complete RLS (Phase 1)

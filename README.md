@@ -28,10 +28,24 @@ This repository is being built in verifiable increments against the roadmap in
   env, and the idempotent, dedup-aware ingest write path (`upsertParsedActivity`), all
   verified against the schema by `tsc`. The ingest **Edge Function** composes it with the
   parser (see [`supabase/functions/`](./supabase/functions)).
+- **Web app** (Phase 1) — `apps/web` (Next.js 15) + `packages/ui` (design tokens +
+  components from `06-UX.md`): Welcome → email/Google/Apple auth → About + health-data
+  consent & medical disclaimer → the availability form. Builds and runs **without** a live
+  Supabase connection (the client is read lazily), so it's verifiable now and connects when
+  env is set.
 
-Remaining Phase 1/2 (the Next.js web app, auth UI, onboarding) are the next increments —
-see [`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`). The Edge Function runs once the migrations
-are applied.
+The engine's UI surfaces (Today, Analytics, plan/calendar) come with Phase 3–5 — see
+[`DECISIONS.md`](./DECISIONS.md) (`D-SCOPE`). The Edge Function and the app's data writes run
+once the migrations are applied.
+
+## Run the web app
+
+```bash
+pnpm --filter @ironflow/web dev     # http://localhost:3000  (works with no env; forms show a "connect Supabase" notice)
+```
+
+Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.env.local`
+(template in [`.env.example`](./.env.example)) to enable auth and the onboarding writes.
 
 ### What the engine can do now
 
@@ -55,12 +69,15 @@ node examples/engine-demo.mjs
 ```
 ironflow/
 ├── spec/                     # the build specification (source of truth), committed
+├── apps/
+│   └── web/                  # Next.js 15 app — auth + onboarding (Phase 1)
 ├── packages/
 │   ├── core/
 │   │   ├── physio/           # THE ENGINE — pure, see spec/03-ALGORITHM.md §1
 │   │   └── ingest/           # FIT/TCX/GPX parsers, normalize, dedupe — pure, tested
 │   ├── api-client/           # the only place that talks to Supabase; typed to the schema
-│   └── config/               # shared tsconfig
+│   ├── ui/                   # design tokens + base components (06-UX.md §2)
+│   └── config/               # shared tsconfig + Tailwind preset
 ├── supabase/
 │   ├── migrations/           # Postgres schema + complete RLS (Phase 1)
 │   ├── seed/fixtures/        # golden fixtures (F1–F6) as JSON contract tests

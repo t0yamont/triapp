@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Production self-hosts Inter / JetBrains Mono (next/font); these stacks keep the app
+     building offline and fall back gracefully. */
+  --font-inter: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #0b0e14;
+}

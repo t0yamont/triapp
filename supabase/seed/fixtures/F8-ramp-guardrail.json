@@ -1,0 +1,8 @@
+{
+  "id": "F8",
+  "description": "Ramp guardrail (07-ACCEPTANCE.md §B F8)",
+  "input": { "rolling3wkMean": 100, "requestedLoad": 118, "confidence": 0.8, "trainingAgeYears": 3 },
+  "expected": { "cappedLoad": 108, "capPct": 0.08, "reasonCode": "RAMP_CAP_APPLIED" },
+  "lowConfidence": { "confidence": 0.4, "cappedLoad": 105, "capPct": 0.05 },
+  "novice": { "trainingAgeYears": 0.5, "cappedLoad": 104, "capPct": 0.04 }
+}

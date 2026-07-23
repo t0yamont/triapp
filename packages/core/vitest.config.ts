@@ -10,7 +10,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['physio/**/*.ts', 'ingest/**/*.ts'],
       // types.ts files are pure type declarations (no runtime); index.ts files are barrels.
-      exclude: ['**/*.test.ts', '**/index.ts', 'physio/types.ts', 'ingest/types.ts'],
+      exclude: ['**/*.test.ts', '**/index.ts', '**/types.ts'],
       // physio is the spec-mandated 100%-branch engine; ingest is reported but not gated here.
       thresholds: {
         'physio/**/*.ts': { branches: 100, functions: 100, lines: 100, statements: 100 },

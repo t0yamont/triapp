@@ -26,3 +26,11 @@ export * from './load/tss.js';
 export * from './load/trimp.js';
 export * from './load/srpe.js';
 export * from './load/fitness.js';
+
+// Distribution (§3.4, §4)
+export * from './distribution/policy.js';
+
+// Planning — periodisation & guardrails (§4, §5.3, §8)
+export * from './plan/types.js';
+export * from './plan/invariants.js';
+export * from './plan/taper.js';

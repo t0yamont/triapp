@@ -124,3 +124,41 @@ export const DFA_A1_MULTI_HR_SPREAD_BPM = 6;
 // ── Resting HR derivation (§2.3) ─────────────────────────────────────────────
 export const HRREST_ROLLING_DAYS = 30;
 export const HRREST_PERCENTILE = 5; // 5th percentile of nightly minimum, rejects artefacts
+
+// ── Intensity distribution targets by phase (§4.2) ───────────────────────────
+// % of weekly sessions, session-goal classification. Phase-dependent: pyramidal early,
+// polarised late, and deliberately NOT polarised for long-course peaking (an IM is raced
+// in S2). Filipas et al. 2022; Rosenblat et al. 2025; Rivera-Köfler et al. 2025.
+// REFERENCES.md §"Intensity distribution".
+export const DISTRIBUTION_TARGETS = {
+  base: { S1: 80, S2: 15, S3: 5 },
+  build_short: { S1: 78, S2: 12, S3: 10 },
+  build_long: { S1: 78, S2: 17, S3: 5 },
+  peak_short: { S1: 78, S2: 6, S3: 16 },
+  peak_long: { S1: 75, S2: 20, S3: 5 },
+  taper: { S1: 82, S2: 10, S3: 8 },
+  recovery: { S1: 92, S2: 8, S3: 0 },
+} as const;
+// Tolerance in percentage points, measured over a rolling 3-week window (§4.2).
+export const DISTRIBUTION_TOLERANCE = { S1: 7, S2: 5, S3: 5 } as const;
+export const DISTRIBUTION_ROLLING_WEEKS = 3;
+// Moderate-drift check (§3.4): S2 time-in-zone above this fraction of weekly time warns.
+export const MODERATE_DRIFT_S2_TIME_PCT = 0.25;
+
+// ── Taper table by A-race event (§8.3) ───────────────────────────────────────
+// days = taper length; reduction = final-week volume reduction. Intensity and frequency
+// are maintained. Bosquet et al. 2007; Wang et al. 2023. REFERENCES.md §"Taper".
+export const TAPER_TABLE = {
+  sprint_tri: { days: 7, reduction: 0.5 },
+  '5k': { days: 7, reduction: 0.5 },
+  olympic_tri: { days: 10, reduction: 0.5 },
+  '10k': { days: 10, reduction: 0.5 },
+  half_marathon: { days: 10, reduction: 0.5 },
+  '70.3': { days: 14, reduction: 0.55 },
+  marathon: { days: 14, reduction: 0.55 },
+  ironman: { days: 18, reduction: 0.6 },
+} as const;
+
+// ── Progression guardrails not already above (§5.3) ──────────────────────────
+export const MAX_CONSECUTIVE_HARD_DAYS_CROSS_SPORT = 3; // never 3 across sports (G5)
+export const RAMP_CAP_APPLIED_REASON = 'RAMP_CAP_APPLIED'; // machine-readable (F8, P1)

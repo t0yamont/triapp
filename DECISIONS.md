@@ -174,6 +174,22 @@ physiological bounds are unspecified in the spec.
 
 ---
 
+## D-TAPER-BOUNDS — Reconciling F7 and I8 at the 40/41% boundary
+
+**Decision.** `generateTaper` lands the final taper week at `1 − reduction` of pre-taper
+volume, clamped into **[40%, 60%]**. For the Ironman (60% reduction) that is exactly 40%
+(280 of 700), which F7 accepts (`[280, 413]`).
+
+**Reconciliation.** §8.3 describes volume *reduction* of "41–60%" and I8 states final volume
+"[41%, 60%]", while F7's golden range is `[280, 413]` = 40–59% of 700 and the IM table row is
+a 60% reduction (→ 40% volume). These are mutually inconsistent at the 40/41 boundary. F7 is
+the golden fixture (the binding contract), so the taper targets the table value (IM → 40%)
+and the tests assert the F7-consistent band [40%, 60%]. Also note F7's "~0.65 weekly decay" is
+descriptive: hitting a 40% final week over 3 weeks requires ≈0.74/week, so the code derives
+the decay to satisfy the *final-week* constraint (the tested one) rather than a fixed 0.65.
+
+---
+
 ## D-DFA-TESTING — DFA-a1 verification strategy
 
 **Decision.** The DFA-a1 path is verified by composing independently-validated stages rather

@@ -1,0 +1,14 @@
+{
+  "id": "F7",
+  "description": "Taper generation, Ironman A race (07-ACCEPTANCE.md §B F7)",
+  "input": { "eventType": "ironman", "preTaperLoad": 700, "preTaperSessionCount": 8 },
+  "expected": {
+    "taperDays": 18,
+    "numWeeks": 3,
+    "finalLoadRange": [280, 413],
+    "finalVolumeFractionRange": [0.4, 0.6],
+    "everyWeekHasS3": true,
+    "sessionCountWithinOfPreTaper": 1,
+    "lastWeekHasActivation": true
+  }
+}

@@ -36,6 +36,7 @@ export * from './plan/invariants.js';
 export * from './plan/taper.js';
 export * from './plan/macro.js';
 export * from './plan/micro.js';
+export * from './plan/assemble.js';
 
 // Session templates (§7)
 export * from './sessions/library.js';

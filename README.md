@@ -15,10 +15,12 @@ This repository is being built in verifiable increments against the roadmap in
 
 - **Foundation** — Turborepo + pnpm workspace, shared TS config, Vitest + fast-check harness.
 - **`packages/core/physio` — the pure engine core**: athlete model, threshold detection,
-  zones, and load metrics (Phase 3), plus the start of the **planning engine** (Phase 5) —
-  the G1–G10 progression **guardrails**, taper generation, and the phase distribution policy.
-  Pure functions, no React/Supabase/network/clock. **100% branch coverage; all applicable
-  golden fixtures (F1–F8) and property tests pass.**
+  zones, and load metrics (Phase 3), and the **planning engine** (Phase 5) — G1–G10
+  progression **guardrails**, taper, distribution policy, sport-specific session templates,
+  macrocycle layout, microcycle construction, and full **plan assembly**. The Phase-5 gate
+  passes: *a 24-week Ironman plan that satisfies every invariant with no gaps*. Pure
+  functions, no React/Supabase/network/clock. **100% branch coverage; golden fixtures
+  (F1–F8, F13) and property tests pass.**
 - **Database layer** (Phase 1) — Postgres migrations for all 21 tables with **complete
   row-level security** and an automated isolation test that proves each athlete sees only
   their own rows on every table. See [`supabase/`](./supabase).

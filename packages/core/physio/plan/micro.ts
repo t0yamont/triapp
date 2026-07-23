@@ -72,7 +72,8 @@ export function constructMicrocycle(input: MicroInput): GuardrailWeek {
   if (rawLoad > loadTarget) {
     const f = loadTarget / rawLoad;
     for (const s of sessions) {
-      s.durationMin = Math.round(s.durationMin * f);
+      // floor, not round: the week must never exceed its ramp-capped target (I5).
+      s.durationMin = Math.floor(s.durationMin * f);
       s.load = s.durationMin * TRIMP_ZONE_WEIGHTS[s.sZone];
     }
   }

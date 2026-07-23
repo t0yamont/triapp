@@ -1,0 +1,9 @@
+{
+  "id": "F13",
+  "description": "Sport-specific interval selection (07-ACCEPTANCE.md §B F13)",
+  "expected": {
+    "bike": { "sets": 3, "repsPerSet": 13, "workSec": 30, "restSec": 15 },
+    "run": { "repsRange": [4, 6], "workMinSec": 180, "workMaxSec": 240 },
+    "note": "The sports do NOT share an interval template."
+  }
+}

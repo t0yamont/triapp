@@ -25,7 +25,9 @@ This repository is being built in verifiable increments against the roadmap in
   what else moved (F10); and **field-test scheduling** (§12) — the trigger table (pre-race
   battery, dropped-confidence re-anchor, fitness-change confirmation, phase-transition and
   cadence tests) plus the placement rules (≥48 h after a hard day, clear of recovery-week
-  starts and the pre-race blackout, only on a non-fatigued day). Every change emits exactly
+  starts and the pre-race blackout, only on a non-fatigued day); and the **illness / return
+  ladder** (§10.4) — symptom-aware caps and a conservative day-by-day reintroduction after a
+  layoff, never a silent load drop. Every change emits exactly
   one audited mutation with an athlete-readable sentence (I13). The Phase-5 gate passes: *a
   24-week Ironman plan that satisfies every invariant with no gaps*. Pure functions, no
   React/Supabase/network/clock. **100% branch coverage; golden fixtures (F1–F10, F13) and
@@ -68,7 +70,7 @@ Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.e
 | Zones (both modes) | `zones/build`, `zones/seiler` | F1, F2, I1–I4 |
 | Load | `load/tss`, `trimp`, `srpe`, `fitness` | F6 |
 | Planning (§8) | `plan/{macro,micro,taper,assemble,invariants}`, `distribution` | F7, F8, I5–I11 |
-| Adaptation (§10) | `readiness/{score,response}`, `plan/reschedule` | F9, F10, I12, I13 |
+| Adaptation (§10) | `readiness/{score,response,return}`, `plan/reschedule` | F9, F10, I12, I13 |
 | Field tests (§12) | `plan/fieldtest` | §12 placement rules |
 | Confidence → behaviour (§2.4) | `confidence` | ties I15 |
 | Purity / determinism | (all) | I16 |

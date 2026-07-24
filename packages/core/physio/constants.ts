@@ -87,6 +87,16 @@ export const READINESS_S3_SUPPRESSION_DAYS = 5; // recovery conversion suppresse
 // reduces the week to this fraction of its planned load.
 export const RECOVERY_WEEK_LOAD_FRACTION = 0.62;
 
+// ── Illness & return-to-training ladder (§10.4) ──────────────────────────────
+// Protocol parameters from spec/03-ALGORITHM.md §10.4. REFERENCES.md §"Readiness /
+// return to training": conservative reintroduction after illness or a training gap.
+export const ILLNESS_ABOVE_NECK_VOLUME_FRAC = 0.6; // above-neck, no fever → S1 at ≤60%
+export const RETURN_LADDER_MIN_DAYS_OFF = 3; // a ladder is triggered after ≥3 days off
+export const RETURN_LADDER_MAX_DAYS = 10; // one restricted day per day missed, capped at 10
+export const RETURN_LADDER_S1_ONLY_DAYS = 2; // days 1–2 of the ladder are S1 only
+export const RETURN_S2_VOLUME_FRAC = 0.5; // reintroduce S2 at 50% normal volume
+export const RETURN_S3_CLEARANCE_INBAND_DAYS = 2; // S3 only after 2 consecutive in-band days
+
 // ── Field test scheduling (§12) ──────────────────────────────────────────────
 // Placement/protocol parameters from spec/03-ALGORITHM.md §12. Scheduling rules, not
 // physiological constants, but transcribed here so the numbers live in one cited place.

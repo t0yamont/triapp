@@ -46,3 +46,4 @@ export * from './sessions/library.js';
 // Adaptive engine — readiness scoring & response rules (§10)
 export * from './readiness/score.js';
 export * from './readiness/response.js';
+export * from './readiness/return.js';

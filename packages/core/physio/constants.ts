@@ -186,6 +186,18 @@ export const DISTRIBUTION_ROLLING_WEEKS = 3;
 // Moderate-drift check (§3.4): S2 time-in-zone above this fraction of weekly time warns.
 export const MODERATE_DRIFT_S2_TIME_PCT = 0.25;
 
+// ── Weekly re-planning triggers (§10.3) ──────────────────────────────────────
+// Week-boundary evaluations from spec/03-ALGORITHM.md §10.3. Adjust the plan, not the athlete.
+export const COMPLETION_LOW_FRAC = 0.7; // <70% completion …
+export const COMPLETION_LOW_WEEKS = 2; // … for 2 weeks (no readiness flags) → cut target
+export const COMPLETION_LOW_TARGET_BUMP = 0.05; // new target = actual + 5% (the plan was wrong)
+export const COMPLETION_HIGH_FRAC = 0.95; // >95% completion …
+export const COMPLETION_HIGH_WEEKS = 3; // … with readiness stable 3 weeks → allow full ramp
+export const HR_PACE_DRIFT_FRAC = 0.03; // HR at a fixed pace falling ≥3% …
+export const HR_PACE_DRIFT_WEEKS = 3; // … over 3+ weeks → schedule a test, don't assume
+export const BODY_MASS_CHANGE_FRAC = 0.03; // body-mass change >3% …
+export const BODY_MASS_CHANGE_WEEKS = 4; // … over 4 weeks → recompute W/kg, flag if unexplained
+
 // ── Taper table by A-race event (§8.3) ───────────────────────────────────────
 // days = taper length; reduction = final-week volume reduction. Intensity and frequency
 // are maintained. Bosquet et al. 2007; Wang et al. 2023. REFERENCES.md §"Taper".

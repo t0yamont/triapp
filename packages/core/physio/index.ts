@@ -39,6 +39,7 @@ export * from './plan/micro.js';
 export * from './plan/assemble.js';
 export * from './plan/reschedule.js';
 export * from './plan/fieldtest.js';
+export * from './plan/replan.js';
 
 // Session templates (§7)
 export * from './sessions/library.js';

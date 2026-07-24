@@ -1,0 +1,26 @@
+{
+  "id": "F10",
+  "description": "Athlete move action + week repair (07-ACCEPTANCE.md §B F10)",
+  "input": {
+    "week": {
+      "phase": "build",
+      "isRecoveryWeek": false,
+      "hoursCeiling": 12,
+      "sessions": [
+        { "dayOfWeek": 1, "sport": "run", "sZone": "S1", "purpose": "aerobic_volume", "durationMin": 45, "load": 45, "isHard": false },
+        { "dayOfWeek": 3, "sport": "bike", "sZone": "S1", "purpose": "aerobic_volume", "durationMin": 60, "load": 60, "isHard": false },
+        { "dayOfWeek": 4, "sport": "run", "sZone": "S2", "purpose": "threshold", "durationMin": 60, "load": 120, "isHard": true },
+        { "dayOfWeek": 5, "sport": "bike", "sZone": "S1", "purpose": "durability", "durationMin": 240, "load": 240, "isHard": true },
+        { "dayOfWeek": 6, "sport": "swim", "sZone": "S1", "purpose": "technique", "durationMin": 45, "load": 45, "isHard": false }
+      ]
+    },
+    "move": { "fromDay": 4, "toDay": 5, "sport": "run" }
+  },
+  "expected": {
+    "changed": true,
+    "reasonCode": "ATHLETE_MOVE_REPAIRED",
+    "runOnDay": 5,
+    "longRideMovedToDay": 4,
+    "remainingViolations": 0
+  }
+}

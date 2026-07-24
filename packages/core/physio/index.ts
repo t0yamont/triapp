@@ -37,6 +37,7 @@ export * from './plan/taper.js';
 export * from './plan/macro.js';
 export * from './plan/micro.js';
 export * from './plan/assemble.js';
+export * from './plan/reschedule.js';
 
 // Session templates (§7)
 export * from './sessions/library.js';

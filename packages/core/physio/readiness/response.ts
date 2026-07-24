@@ -17,7 +17,7 @@ import {
   READINESS_WEEK_REDUCTION_FRAC,
   RECOVERY_WEEK_LOAD_FRACTION,
 } from '../constants.js';
-import type { SZone } from '../types.js';
+import type { PlanMutation, SZone } from '../types.js';
 
 export interface DailyReadiness {
   band: 'below' | 'within' | 'above' | 'unknown';
@@ -40,12 +40,6 @@ export const READINESS_REASON = {
   TWO_DAY_LOW: 'READINESS_2DAY_LOW',
   ONE_DAY_S3_DOWNGRADE: 'READINESS_1DAY_S3_DOWNGRADE',
 } as const;
-
-export interface PlanMutation {
-  actor: 'engine';
-  reasonCode: string;
-  reasonText: string;
-}
 
 export interface AdaptationResult {
   action: AdaptationAction;

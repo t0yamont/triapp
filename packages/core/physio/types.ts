@@ -119,3 +119,17 @@ export interface ConfidenceBehaviour {
   /** Whether the low-confidence state blocks the UI (critical tier). */
   blocking: boolean;
 }
+
+// ── Audit (§10, rule #10) ─────────────────────────────────────────────────────
+
+/**
+ * One `plan_mutations` row: every plan write, ever, carries who caused it, a
+ * machine-readable reason code, and an athlete-facing sentence (04-DATA-MODEL.sql
+ * `plan_mutations`; invariant I13). `ruleId` names the §10.2/§10.3/guardrail rule that fired.
+ */
+export interface PlanMutation {
+  actor: 'engine' | 'athlete' | 'coach' | 'system';
+  reasonCode: string;
+  reasonText: string;
+  ruleId?: string;
+}

@@ -230,3 +230,33 @@ The mid-week recovery conversion reduces the week to `RECOVERY_WEEK_LOAD_FRACTIO
 midpoint of the G4 55–70% band — promoted out of a local in `assemble.ts` so both callers share
 one cited value), i.e. −38%. The completion-rate→z mapping (85% neutral, 0.15 span) is a
 presentational scaling, not a physiological constant, and is commented as such in `score.ts`.
+
+---
+
+## D-F10-REPAIR — What "G5 would be violated" means for a stacked move
+
+**Decision.** `plan/reschedule.ts::moveSession` honours the athlete's drag, then repairs the
+week by relocating the *one* session that has to move — the key session it collided with, or
+the moved session itself — to the nearest available day that leaves the week fully
+guardrail-valid, and reports every move it made (06-UX "Calendar"). F10 (threshold run → the
+long-ride day) resolves as a two-move edit: run to Friday (athlete), long ride to Thursday
+(engine), reported in one `plan_mutations` row (actor `athlete`, reason `ATHLETE_MOVE_REPAIRED`,
+`ruleId` G5).
+
+**Interpreting the fixture.** F10 says the move means "G5 would be violated." Two hard/key
+sessions landing on the *same* day is not literally one of the coded weekly guardrails
+(`consecutiveHardDays` counts hard *days*, and stacking two onto one day actually *lowers* the
+consecutive count), but it is exactly what G5 ("≤2 consecutive hard days; a brick counts as one
+hard day") exists to prevent. So the repair treats a same-day stack of two hard sessions as a
+breach to clear (`G5_STACKED_HARD`), and — crucially — when searching for the relocation target
+it rejects any day that would create a literal 3-consecutive-hard-days run. That rejection is
+the concrete "G5 would be violated": e.g. shifting the long ride onto Saturday when Sunday is
+already hard is refused, and the search falls back to a valid day.
+
+**Scope.** This increment implements the `move` action + repair (what F10 exercises) only.
+`swap`/`shorten`/`skip`/`block` and cross-training substitution (§10.4) are deferred; the repair
+is a nearest-valid-day search, not a week re-optimiser (`ponytail:` in the module), and reverts
+to reporting open breaches (`ATHLETE_MOVE_UNRESOLVED`) rather than silently dropping load when it
+can't find a legal placement. The `PlanMutation` audit type was promoted to `physio/types.ts`
+(actors engine/athlete/coach/system per 04-DATA-MODEL.sql) so readiness and reschedule share one
+shape.

@@ -6,7 +6,7 @@
 #
 # Region/data residency (02-ARCHITECTURE.md §7): choose an EU/UK region when creating the
 # project — it cannot be changed later. That is set in the dashboard, not this file.
-project_id = "REPLACE_WITH_PROJECT_REF"
+project_id = "uohnidhngvrzoyltekph"
 
 [api]
 enabled = true

@@ -87,6 +87,20 @@ export const READINESS_S3_SUPPRESSION_DAYS = 5; // recovery conversion suppresse
 // reduces the week to this fraction of its planned load.
 export const RECOVERY_WEEK_LOAD_FRACTION = 0.62;
 
+// ── Field test scheduling (§12) ──────────────────────────────────────────────
+// Placement/protocol parameters from spec/03-ALGORITHM.md §12. Scheduling rules, not
+// physiological constants, but transcribed here so the numbers live in one cited place.
+export const FIELD_TEST_MIN_HOURS_AFTER_HARD = 48; // always ≥48 h after a hard session
+export const FIELD_TEST_RACE_EXCLUSION_DAYS = 10; // never within 10 days of a race
+export const FIELD_TEST_RECOVERY_LOCKOUT_DAYS = 3; // never in a recovery week's first 3 days
+export const FIELD_TEST_CADENCE_CONF_HIGH = 0.75; // ≥0.75 confidence → 8-week cadence
+export const FIELD_TEST_CADENCE_CONF_MID = 0.5; // 0.50–0.74 → 6-week cadence
+export const FIELD_TEST_CADENCE_WEEKS_HIGH_CONF = 8;
+export const FIELD_TEST_CADENCE_WEEKS_MID_CONF = 6;
+export const FIELD_TEST_PRE_RACE_WEEKS = 6; // full battery 6 weeks before an A race
+export const FIELD_TEST_FITNESS_CONFIRM_DAYS = 10; // confirmatory test within 10 days (§10.3)
+export const FIELD_TEST_PHASE_TRANSITION_DEADLINE_DAYS = 7; // LT2 test at a phase change
+
 // ── Durability — Maunder et al. 2021; Hunter et al. 2025 (§11) ───────────────
 export const DECOUPLING_TARGET_PCT = 5;
 export const DECOUPLING_MIN_SESSION_MIN = 75;

@@ -260,3 +260,27 @@ to reporting open breaches (`ATHLETE_MOVE_UNRESOLVED`) rather than silently drop
 can't find a legal placement. The `PlanMutation` audit type was promoted to `physio/types.ts`
 (actors engine/athlete/coach/system per 04-DATA-MODEL.sql) so readiness and reschedule share one
 shape.
+
+---
+
+## D-FIELDTEST-READINESS — "readiness inside the SWC band" for test placement
+
+**Decision.** §12's placement rule "readiness must be inside the SWC band on the day or the
+test is postponed" is implemented as **not fatigued and not unknown**: `placeFieldTest` accepts
+a day whose readiness band is `within` *or* `above`, and rejects `below` or `unknown`
+(`READINESS_NOT_CLEARED`).
+
+**Reason.** The rule's stated rationale is that "a test performed while fatigued produces a wrong
+number that then poisons the plan for weeks." Fatigue is the `below` band. An unusually *fresh*
+day (`above`) is an excellent test day, so postponing a test because the athlete is too rested
+would be perverse; and an `unknown` band means we cannot clear the athlete, so we postpone.
+Reading the band as a fatigue gate rather than a literal two-sided window matches the intent.
+The other three placement rules — no test in a recovery week's first 3 days, ≥48 h after a hard
+session, never within 10 days of a race — are implemented exactly as written.
+
+**Scope.** `nextFieldTest` implements the §12 trigger table in priority order (pre-race battery
+→ dropped-confidence re-anchor → fitness-change confirmation → phase-transition LT2 → routine
+cadence). Deadlines that §12 states are used verbatim (fitness change 10 days, cadence 8/6 weeks
+by confidence, full battery 6 weeks out); the phase-transition (7 days) and cadence "next slot"
+(14 days) windows are engine defaults, since §12 gives those triggers a test but not an explicit
+deadline.

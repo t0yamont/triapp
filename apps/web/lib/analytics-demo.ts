@@ -13,9 +13,12 @@ import {
   fitnessSeries,
   isModerateDrift,
   isWithinTolerance,
+  weeklyReplan,
   type Distribution,
   type DurabilityResponse,
   type FitnessPoint,
+  type ReplanDecision,
+  type WeeklyReplanContext,
 } from '@ironflow/core/physio';
 
 // ── Representative 12-week build block (deterministic) ────────────────────────
@@ -38,11 +41,14 @@ export interface AnalyticsView {
   current: FitnessPoint;
   /** Peak CTL over the block, for chart scaling and a "fitness high" read. */
   peakCtl: number;
+  /** One sentence on where form stands — TSB reads sub-zero mid-build by design (§5.2). */
+  tsbNarrative: string;
   distribution: {
     actual: Distribution;
     target: Distribution;
     withinTolerance: boolean;
     moderateDrift: boolean;
+    narrative: string;
   };
   durability: {
     latestPct: number;
@@ -51,6 +57,32 @@ export interface AnalyticsView {
     trend: number[];
     response: DurabilityResponse;
   };
+  /** This week's §10.3 weekly re-planning triggers — empty means the plan is on track. */
+  replan: ReplanDecision[];
+}
+
+// A representative week that trips two real §10.3 triggers: two weeks of under-completion
+// with clean readiness (the plan asked too much), and a sustained HR-at-pace improvement
+// (verify with a test before touching zones — never a silent upgrade).
+const REPLAN_CONTEXT: WeeklyReplanContext = {
+  completionByWeek: [0.68, 0.65],
+  actualLoadLastWeek: 640,
+  readinessFlaggedWeeks: 0,
+  readinessStableWeeks: 0,
+  hrAtPaceChangeFrac: -0.035,
+  hrAtPaceWeeks: 3,
+};
+
+function tsbNarrative(tsb: number): string {
+  if (tsb < -5) return "Form has been running low for a few weeks — that's what a build block looks like. It comes back in the taper.";
+  if (tsb > 5) return "Form is positive — you're fresh, which is useful heading into a key session or race.";
+  return 'Fitness and fatigue are roughly in step right now.';
+}
+
+function distributionNarrative(withinTolerance: boolean, moderateDrift: boolean): string {
+  if (moderateDrift) return 'Your S2 time is creeping up — worth easing back toward genuinely easy on aerobic days.';
+  if (withinTolerance) return 'Neither too polarised nor grey-zone. Your easy work is genuinely easy.';
+  return "Your mix has drifted from target — the plan will nudge it back over the next few weeks.";
 }
 
 export function buildAnalyticsView(): AnalyticsView {
@@ -60,6 +92,8 @@ export function buildAnalyticsView(): AnalyticsView {
 
   const actual: Distribution = { S1: 76, S2: 16, S3: 8 };
   const target = distributionTarget('build', 'long');
+  const withinTolerance = isWithinTolerance(actual, target);
+  const moderateDrift = isModerateDrift(actual.S2 / 100);
 
   // Latest long-ride decoupling — drifting late but improving across the block.
   const latest = computeDecoupling({
@@ -74,11 +108,13 @@ export function buildAnalyticsView(): AnalyticsView {
     series,
     current,
     peakCtl,
+    tsbNarrative: tsbNarrative(current.tsb),
     distribution: {
       actual,
       target,
-      withinTolerance: isWithinTolerance(actual, target),
-      moderateDrift: isModerateDrift(actual.S2 / 100),
+      withinTolerance,
+      moderateDrift,
+      narrative: distributionNarrative(withinTolerance, moderateDrift),
     },
     durability: {
       latestPct: latest.decouplingPct,
@@ -87,5 +123,6 @@ export function buildAnalyticsView(): AnalyticsView {
       trend: [8.4, 7.6, 7.1, latest.decouplingPct],
       response: durabilityResponse(latest),
     },
+    replan: weeklyReplan(REPLAN_CONTEXT),
   };
 }

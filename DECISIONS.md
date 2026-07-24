@@ -284,3 +284,42 @@ cadence). Deadlines that §12 states are used verbatim (fitness change 10 days, 
 by confidence, full battery 6 weeks out); the phase-transition (7 days) and cadence "next slot"
 (14 days) windows are engine defaults, since §12 gives those triggers a test but not an explicit
 deadline.
+
+---
+
+## D-DESIGN-VERDICT — Today/Analytics rebuilt against the Claude Design canvas ("Instrument
+Glass"), option 1c ("Verdict line")
+
+**Decision.** The Claude Design project `IronFlow — Instrument Glass` (canvas
+`IronFlow - Instrument Glass.dc.html`) explored three alternative Today layouts (1a "Session
+brief", 1b "Instrument console", 1c "Verdict line") plus a new Analytics layout (1d) and a
+foundations/components reference (1e), sharing one design system. The user picked **1c** for
+Today. `/today` and `/analytics` were rebuilt against it: a fused session+readiness hero with a
+linear (not ring) gauge, a new interval "session shape" bar, a "signals behind the score" panel,
+a restyled week panel, a new "coming up" strip, and — on Analytics — a dedicated TSB card, a
+dual-bar intensity-split card, a decoupling card with a limit line, and a new "what the weekly
+re-plan changed" card.
+
+**Deviations from the literal canvas, and why:**
+
+1. **Nav rail unchanged (248px labelled), not 1c's 76px icon-only rail.** The canvas explores a
+   narrower rail per-option; adopting it only for Today would make the nav width change when
+   navigating between pages. `AppShell` (used by every page) was left as-is; only the Today page
+   content changed. A global nav-width change is a separate decision if wanted.
+2. **Mobile reflows responsively rather than replicating the literal 390px mobile frame.** The
+   canvas's mobile composition drops "Coming up", the session's target list, and the whole
+   "Attention" section to fit a fixed static frame. The redesign brief's own written mobile rule
+   (§7: single column, priority order, wide content scrolls horizontally) doesn't say to drop
+   content, so the implementation keeps every section and reflows it into one column on small
+   screens instead — no functional loss on mobile.
+3. **No fabricated "durability index."** 1e's Analytics mockup shows a 0–1 "durability index"
+   card (e.g. "0.86 ▲") alongside aerobic decoupling. The engine (`durability/decoupling.ts`)
+   computes decoupling %, not a separate 0–1 index, and no formula for one exists in
+   `03-ALGORITHM.md`/`REFERENCES.md`. Rather than invent one, only the real decoupling metric was
+   built (`DecouplingCard`), restyled with a limit-line chart. "No invented constants"
+   (`00-AGENT-BRIEF.md`) is read to cover inventing a whole metric, not just a numeric constant.
+4. **Analytics period tabs (6wk/12wk/6mo/Season) are omitted.** They'd require client-side state
+   for a purely cosmetic filter with no wired data per period; out of scope for this pass.
+5. **"What the weekly re-plan changed" is wired to the real `weeklyReplan` (§10.3) engine call**,
+   not the canvas's static placeholder flags — this surfaces previously-unused engine output
+   (§10.3 was implemented in Phase 6 but had no UI consumer yet).

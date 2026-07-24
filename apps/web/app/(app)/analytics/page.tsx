@@ -1,8 +1,10 @@
 import { Card } from '@ironflow/ui';
 import { buildAnalyticsView } from '../../../lib/analytics-demo';
 import { FormChart } from '../../../components/analytics/FormChart';
+import { TsbCard } from '../../../components/analytics/TsbCard';
 import { DistributionCard } from '../../../components/analytics/DistributionCard';
-import { DurabilityCard } from '../../../components/analytics/DurabilityCard';
+import { DecouplingCard } from '../../../components/analytics/DecouplingCard';
+import { ReplanCard } from '../../../components/analytics/ReplanCard';
 
 function StatTile({ label, value, sub, tone = 'text-text' }: { label: string; value: string; sub: string; tone?: string }) {
   return (
@@ -54,25 +56,29 @@ export default function AnalyticsPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        <TsbCard series={view.series} narrative={view.tsbNarrative} />
         <DistributionCard
           actual={view.distribution.actual}
           target={view.distribution.target}
           withinTolerance={view.distribution.withinTolerance}
           moderateDrift={view.distribution.moderateDrift}
+          narrative={view.distribution.narrative}
         />
-        <DurabilityCard
+        <DecouplingCard
           latestPct={view.durability.latestPct}
           valid={view.durability.valid}
           exceedsTarget={view.durability.exceedsTarget}
           trend={view.durability.trend}
           response={view.durability.response}
         />
+        <ReplanCard decisions={view.replan} />
       </div>
 
       <p className="text-label text-faint">
         CTL/ATL/TSB from <code className="font-mono text-muted">fitnessSeries</code>, distribution from
         <code className="font-mono text-muted"> distribution/policy</code>, decoupling from
-        <code className="font-mono text-muted"> durability/decoupling</code> — all pure engine (§5.2, §11).
+        <code className="font-mono text-muted"> durability/decoupling</code>, and the re-plan flags from
+        <code className="font-mono text-muted"> plan/replan</code> — all pure engine (§5.2, §10.3, §11).
       </p>
     </div>
   );

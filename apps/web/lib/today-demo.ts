@@ -22,16 +22,38 @@ import { WEEKDAYS } from './days';
 
 export type ViewSport = 'run' | 'bike' | 'swim' | 'strength';
 
+/** One block of a session's shape, in engine-block order — renders as the interval bar (§7.1). */
+export interface SessionInterval {
+  minutes: number;
+  zone: SZone;
+}
+
 export interface PlannedSession {
   name: string;
   sport: ViewSport;
   durationMin: number;
   plannedZone: SZone;
   why: string;
-  structure: string;
-  targets: string;
+  targetRows: TargetRow[];
   /** Confidence of the anchor the targets are derived from (§2.4). */
   targetsConfidence: number;
+  intervals: SessionInterval[];
+}
+
+export interface TargetRow {
+  label: string;
+  value: string;
+  zone: SZone;
+}
+
+export interface UpcomingSession {
+  dayShort: string;
+  load: number;
+  isKey: boolean;
+  sport: ViewSport;
+  zone: SZone;
+  name: string;
+  detail: string;
 }
 
 export interface WeekDayLoad {
@@ -64,10 +86,14 @@ export interface TodayView {
   dateLabel: string;
   climate: Climate;
   readiness: Readiness;
+  /** One sentence explaining today's readiness state — the adaptation reason when adapted,
+   *  else a band-appropriate reassurance. Never the score alone (§16, P2). */
+  readinessLine: string;
   session: PlannedSession;
   effectiveZone: SZone;
   adaptation: AdaptationResult;
   week: WeekStripView;
+  comingUp: UpcomingSession[];
   attention: AttentionItem[];
 }
 
@@ -92,15 +118,35 @@ const PLANNED_SESSION: PlannedSession = {
   durationMin: 75,
   plannedZone: 'S3',
   why: 'Peak aerobic power — the top-end stimulus your Build phase is short on.',
-  structure: '3 × 13 × (30s hard / 15s easy), 3 min between sets',
-  targets: '300–330 W · cap RPE 8',
+  targetRows: [
+    { label: 'Warm-up', value: '12m · 180–200 W', zone: 'S1' },
+    { label: 'Main 3×', value: '5m · 300–330 W', zone: 'S3' },
+    { label: 'Recovery 3×', value: '3m · 160–180 W', zone: 'S1' },
+    { label: 'Cool-down', value: '12m · 150–170 W', zone: 'S1' },
+  ],
   targetsConfidence: 0.72,
+  // 3 × 13 × (30s hard / 15s easy) rolled up to block level for the shape bar (§7.1).
+  intervals: [
+    { minutes: 12, zone: 'S1' },
+    { minutes: 15, zone: 'S3' },
+    { minutes: 3, zone: 'S1' },
+    { minutes: 15, zone: 'S3' },
+    { minutes: 3, zone: 'S1' },
+    { minutes: 15, zone: 'S3' },
+    { minutes: 12, zone: 'S1' },
+  ],
 };
 
 // Planned vs completed daily load across the training week (Mon-first). Today is Thursday.
-const WEEK_PLANNED: Record<number, number> = { 1: 60, 2: 180, 3: 60, 4: 225, 5: 90, 6: 240, 0: 0 };
+const WEEK_PLANNED: Record<number, number> = { 1: 60, 2: 180, 3: 60, 4: 225, 5: 90, 6: 240, 0: 55 };
 const WEEK_DONE: Record<number, number> = { 1: 58, 2: 180, 3: 66, 4: 0, 5: 0, 6: 0, 0: 0 };
 const TODAY_INDEX = 4;
+
+const COMING_UP: UpcomingSession[] = [
+  { dayShort: 'Fri', load: WEEK_PLANNED[5]!, isKey: false, sport: 'swim', zone: 'S1', name: 'Swim Technique', detail: '45m · S1 · easy by design' },
+  { dayShort: 'Sat', load: WEEK_PLANNED[6]!, isKey: true, sport: 'bike', zone: 'S2', name: 'Long Ride + Brick Run', detail: '3h 30m · S1/S2 · race simulation' },
+  { dayShort: 'Sun', load: WEEK_PLANNED[0]!, isKey: false, sport: 'run', zone: 'S1', name: 'Aerobic Run', detail: "50m · S1 · off yesterday's ride" },
+];
 
 const DISTRIBUTION_ACTUAL: Distribution = { S1: 82, S2: 9, S3: 9 };
 const DISTRIBUTION_TARGET: Distribution = { S1: 80, S2: 15, S3: 5 };
@@ -151,6 +197,18 @@ function buildAttention(adaptation: AdaptationResult): AttentionItem[] {
 // The sample athlete is mid-Build (not peaking) — the climate follows their readiness.
 const PEAKING = false;
 
+/**
+ * One sentence for "why this readiness". Reuses the engine's own adaptation reason when
+ * today was adapted (P1 — the athlete-readable text is never re-authored, only surfaced),
+ * else a band-appropriate reassurance. Never the score alone (§16, P2).
+ */
+function readinessNarrative(band: Readiness['band'], adaptation: AdaptationResult): string {
+  if (adaptation.action !== 'none' && adaptation.mutation) return adaptation.mutation.reasonText;
+  if (band === 'below') return "Readiness dipped below your normal range, but not enough yet to change today's plan.";
+  if (band === 'unknown') return 'Not enough signal yet — connect a wearable or log daily wellness to sharpen this.';
+  return 'Every signal is inside your normal range. The plan stands as written.';
+}
+
 export function buildTodayView(): TodayView {
   const readiness = readinessScore(READINESS_INPUTS);
   const adaptation = adaptToday(READINESS_HISTORY, PLANNED_SESSION.plannedZone);
@@ -162,10 +220,12 @@ export function buildTodayView(): TodayView {
     dateLabel: 'Thursday, Build week 3',
     climate: readinessClimate({ band: readiness.band, action: adaptation.action, peaking: PEAKING }),
     readiness,
+    readinessLine: readinessNarrative(readiness.band, adaptation),
     session: PLANNED_SESSION,
     effectiveZone,
     adaptation,
     week: buildWeek(),
+    comingUp: COMING_UP,
     attention: buildAttention(adaptation),
   };
 }

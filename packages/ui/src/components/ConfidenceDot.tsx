@@ -14,9 +14,9 @@ export function confidenceLevel(confidence: number): ConfidenceLevel {
 }
 
 const DOT: Record<ConfidenceLevel, string> = {
-  high: 'bg-confidence-high',
-  medium: 'bg-confidence-medium',
-  low: 'bg-confidence-low',
+  high: 'bg-confidence-high shadow-[0_0_8px_rgba(53,214,164,0.65)]',
+  medium: 'bg-confidence-medium shadow-[0_0_8px_rgba(244,183,64,0.65)]',
+  low: 'bg-confidence-low shadow-[0_0_8px_rgba(251,139,76,0.65)]',
   none: 'bg-confidence-none',
 };
 
@@ -24,7 +24,7 @@ export function ConfidenceDot({ confidence, label }: { confidence: number; label
   const level = confidenceLevel(confidence);
   return (
     <span className="inline-flex items-center gap-1.5 text-label text-muted">
-      <span className={cn('h-2 w-2 rounded-full', DOT[level])} aria-hidden />
+      <span className={cn('h-1.5 w-1.5 rounded-full', DOT[level])} aria-hidden />
       {label}
     </span>
   );

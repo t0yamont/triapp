@@ -9,12 +9,12 @@ function DistributionBar({ actual, target }: { actual: Distribution; target: Dis
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-label text-faint">Intensity mix (S1 / S2 / S3)</span>
-        <span className="font-mono text-label text-faint">
+        <span className="text-label uppercase tracking-widest text-faint">Intensity mix</span>
+        <span className="font-mono text-label tabular-nums text-faint">
           target {target.S1}/{target.S2}/{target.S3}
         </span>
       </div>
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-raised" role="img" aria-label="Zone distribution">
+      <div className="relative flex h-2.5 overflow-hidden rounded-full bg-white/[0.05]" role="img" aria-label="Zone distribution vs target">
         {ZONES.map((z) => (
           <span key={z} className={ZONE_BG[z]} style={{ width: `${actual[z]}%` }} />
         ))}
@@ -22,8 +22,8 @@ function DistributionBar({ actual, target }: { actual: Distribution; target: Dis
       <div className="flex gap-4">
         {ZONES.map((z) => (
           <span key={z} className="inline-flex items-center gap-1.5 text-label text-muted">
-            <span className={`h-2 w-2 rounded-sm ${ZONE_BG[z]}`} aria-hidden />
-            {z} {actual[z]}%
+            <span className={`h-2 w-2 rounded-[3px] ${ZONE_BG[z]}`} aria-hidden />
+            {z} <span className="font-mono tabular-nums text-text">{actual[z]}%</span>
           </span>
         ))}
       </div>
@@ -36,33 +36,41 @@ export function WeekStrip({ week }: { week: WeekStripView }) {
   const pct = Math.round((week.doneTotal / Math.max(1, week.plannedTotal)) * 100);
 
   return (
-    <Card className="flex flex-col gap-5">
+    <Card className="flex flex-col gap-6">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-h2 text-text">This week</h2>
-        <span className="text-label text-muted">
-          <span className="font-mono text-text">{week.doneTotal}</span> / {week.plannedTotal} load · {pct}%
+        <span className="text-label uppercase tracking-widest text-faint">This week</span>
+        <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-label text-muted">
+          <span className="font-mono tabular-nums text-text">{week.doneTotal}</span>
+          <span className="text-faint">/ {week.plannedTotal} load</span>
+          <span className="text-accent-bright">{pct}%</span>
         </span>
       </div>
 
-      <div className="flex gap-2" style={{ height: 112 }}>
+      <div className="flex items-end gap-2.5" style={{ height: 116 }}>
         {week.days.map((d) => (
-          <div key={d.index} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-            <div className="relative w-full max-w-[36px] flex-1 self-center">
-              {/* planned = track, done = filled overlay */}
+          <div key={d.index} className="flex h-full flex-1 flex-col items-center justify-end gap-2.5">
+            <div className="relative w-full max-w-[34px] flex-1 self-center overflow-hidden rounded-[6px]">
+              <span className="absolute bottom-0 w-full rounded-[6px] bg-white/[0.06]" style={{ height: `${(d.plannedLoad / max) * 100}%` }} />
               <span
-                className="absolute bottom-0 w-full rounded-t bg-white/10"
-                style={{ height: `${(d.plannedLoad / max) * 100}%` }}
-              />
-              <span
-                className={`absolute bottom-0 w-full rounded-t ${d.isToday ? 'bg-accent' : 'bg-muted/60'}`}
+                className={`absolute bottom-0 w-full rounded-[6px] ${d.isToday ? 'bg-accent shadow-[0_0_16px_rgba(109,139,255,0.6)]' : 'bg-white/25'}`}
                 style={{ height: `${(d.doneLoad / max) * 100}%` }}
               />
             </div>
-            <span className={`text-label ${d.isToday ? 'text-accent' : 'text-faint'}`}>{d.short}</span>
+            <span className={`text-label ${d.isToday ? 'font-semibold text-accent-bright' : 'text-faint'}`}>{d.short}</span>
           </div>
         ))}
       </div>
 
+      <div className="flex items-center gap-4 text-label text-faint">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-[3px] bg-white/25" aria-hidden /> completed
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-[3px] bg-white/[0.06] ring-1 ring-inset ring-white/10" aria-hidden /> planned
+        </span>
+      </div>
+
+      <div className="hairline" />
       <DistributionBar actual={week.distributionActual} target={week.distributionTarget} />
     </Card>
   );

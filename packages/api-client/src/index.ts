@@ -3,7 +3,7 @@
  * (CLAUDE.md §Architecture). Typed against the generated `Database`.
  */
 
-export type { Database } from './database.types.js';
+export type { Database, Json } from './database.types.js';
 export * from './types.js';
 export * from './env.js';
 export * from './client.js';

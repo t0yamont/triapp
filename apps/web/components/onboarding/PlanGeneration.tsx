@@ -1,12 +1,17 @@
 'use client';
 
+import { generatePlan, type GeneratePlanInput } from '@ironflow/core/physio';
+import { insertGeneratedPlan, type GeneratedPlanMeta, type Json } from '@ironflow/api-client';
 import { Button, Card } from '@ironflow/ui';
-import type { MacroWeek, PlanSummary } from '@ironflow/core/physio';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useSupabase } from '../../lib/supabase';
 import { PhaseTimeline } from '../races/PhaseTimeline';
 
 const STAGES = ['Building your athlete model', 'Laying out training phases', 'Placing key sessions', 'Checking safety limits'];
+const ENGINE_VERSION = 'physio-1';
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -17,9 +22,29 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function PlanGeneration({ summary, weeks }: { summary: PlanSummary; weeks: MacroWeek[] }) {
+export function PlanGeneration({ input }: { input: GeneratePlanInput }) {
+  const router = useRouter();
+  const supabase = useSupabase();
+  const plan = useMemo(() => generatePlan(input), [input]);
+  const weeks = useMemo(() => plan.weeks.map((w) => ({ weekNumber: w.weekNumber, phase: w.phase, isRecoveryWeek: w.isRecoveryWeek })), [plan]);
+
   const [step, setStep] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [athleteId, setAthleteId] = useState<string | null>(null);
+  const [save, setSave] = useState<SaveState>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Who are we saving for? (null until known; stays null with no Supabase / not signed in.)
+  useEffect(() => {
+    if (!supabase) return;
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (alive) setAthleteId(data.user?.id ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
 
   useEffect(() => {
     if (step < STAGES.length) {
@@ -29,6 +54,32 @@ export function PlanGeneration({ summary, weeks }: { summary: PlanSummary; weeks
     const t = setTimeout(() => setRevealed(true), 550);
     return () => clearTimeout(t);
   }, [step]);
+
+  const canSave = Boolean(supabase && athleteId);
+
+  async function handleSave() {
+    if (!supabase || !athleteId) {
+      router.push('/today');
+      return;
+    }
+    setSave('saving');
+    setErrorMsg(null);
+    const meta: GeneratedPlanMeta = {
+      name: 'Your training plan',
+      modelSnapshot: { confidence: input.confidence, trainingAgeYears: input.trainingAgeYears } as unknown as Json,
+      availabilitySnapshot: input.availability as unknown as Json,
+      distributionPolicy: { source: 'engine §4.2 per phase' } as unknown as Json,
+      engineVersion: ENGINE_VERSION,
+      course: input.course,
+    };
+    try {
+      await insertGeneratedPlan(supabase, athleteId, plan, meta);
+      router.push('/today');
+    } catch (e) {
+      setSave('error');
+      setErrorMsg(e instanceof Error ? e.message : 'Could not save your plan.');
+    }
+  }
 
   if (!revealed) {
     return (
@@ -77,15 +128,15 @@ export function PlanGeneration({ summary, weeks }: { summary: PlanSummary; weeks
           <div className="inline-flex w-fit items-center gap-2 rounded-full bg-ok/15 px-2.5 py-1 text-label font-medium text-ok">
             <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden /> Plan ready
           </div>
-          <h1 className="text-display text-text">Your {summary.totalWeeks}-week plan is built</h1>
+          <h1 className="text-display text-text">Your {plan.summary.totalWeeks}-week plan is built</h1>
           <p className="text-body text-muted">A complete, guardrail-valid periodisation to race day — every week has a purpose.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Weeks" value={String(summary.totalWeeks)} />
-          <Stat label="Sessions" value={String(summary.totalWorkouts)} />
-          <Stat label="Hours" value={`${summary.totalHours}`} />
-          <Stat label="Recovery wks" value={String(summary.recoveryWeeks)} />
+          <Stat label="Weeks" value={String(plan.summary.totalWeeks)} />
+          <Stat label="Sessions" value={String(plan.summary.totalWorkouts)} />
+          <Stat label="Hours" value={`${plan.summary.totalHours}`} />
+          <Stat label="Recovery wks" value={String(plan.summary.recoveryWeeks)} />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -112,10 +163,25 @@ export function PlanGeneration({ summary, weeks }: { summary: PlanSummary; weeks
         </ul>
       </Card>
 
-      <div className="flex justify-end">
-        <Link href="/today">
-          <Button>Go to today</Button>
-        </Link>
+      <div className="flex flex-col items-end gap-2">
+        {save === 'error' ? (
+          <div className="w-full rounded-control border border-risk/30 bg-risk/[0.08] p-3 text-label text-risk">
+            Couldn&apos;t save your plan: {errorMsg}. You can still continue.
+          </div>
+        ) : null}
+        <div className="flex items-center gap-3">
+          <span className="text-label text-faint">
+            {canSave ? 'Saves the plan to your account' : 'Connect Supabase & sign in to save this plan'}
+          </span>
+          {save === 'error' ? (
+            <Button variant="secondary" onClick={() => router.push('/today')}>
+              Continue anyway
+            </Button>
+          ) : null}
+          <Button onClick={handleSave} disabled={save === 'saving'}>
+            {save === 'saving' ? 'Saving…' : canSave ? 'Save plan & continue' : 'Go to today'}
+          </Button>
+        </div>
       </div>
     </div>
   );

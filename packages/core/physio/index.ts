@@ -44,6 +44,9 @@ export * from './plan/replan.js';
 // Session templates (§7)
 export * from './sessions/library.js';
 
+// Durability — decoupling & its planning response (§11)
+export * from './durability/decoupling.js';
+
 // Adaptive engine — readiness scoring & response rules (§10)
 export * from './readiness/score.js';
 export * from './readiness/response.js';

@@ -114,6 +114,8 @@ export const FIELD_TEST_PHASE_TRANSITION_DEADLINE_DAYS = 7; // LT2 test at a pha
 // ── Durability — Maunder et al. 2021; Hunter et al. 2025 (§11) ───────────────
 export const DECOUPLING_TARGET_PCT = 5;
 export const DECOUPLING_MIN_SESSION_MIN = 75;
+export const DECOUPLING_MAX_INTENSITY_CV = 0.1; // intensity SD <10% within each half (§11.1)
+export const DURABILITY_RACE_ESCALATION_WEEKS = 10; // long-course <10 wk from A race → escalate (§11.2)
 
 // ── Heat — Bayesian meta-regression, 211 papers (§7.4) ───────────────────────
 export const HEAT_EXPOSURES_RANGE = [8, 14] as const;

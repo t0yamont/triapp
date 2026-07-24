@@ -1,0 +1,20 @@
+{
+  "id": "F12",
+  "description": "Decoupling on a 3-hour ride (07-ACCEPTANCE.md §B F12)",
+  "input": {
+    "first": { "meanHr": 155, "meanIntensity": 250, "intensityCv": 0.05 },
+    "second": { "meanHr": 165, "meanIntensity": 250, "intensityCv": 0.05 },
+    "durationMin": 180,
+    "hadLongStop": false,
+    "ambientRecorded": true
+  },
+  "expected": {
+    "ratioFirst": 0.62,
+    "ratioSecond": 0.66,
+    "decouplingPct": 6.45,
+    "valid": true,
+    "exceedsTarget": true,
+    "action": "increase_aerobic_volume",
+    "reasonCode": "DECOUPLING_HIGH"
+  }
+}

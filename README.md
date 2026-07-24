@@ -33,7 +33,7 @@ This repository is being built in verifiable increments against the roadmap in
   drift, recompute W/kg, protect durability). Every change emits exactly
   one audited mutation with an athlete-readable sentence (I13). The Phase-5 gate passes: *a
   24-week Ironman plan that satisfies every invariant with no gaps*. Pure functions, no
-  React/Supabase/network/clock. **100% branch coverage; golden fixtures (F1–F10, F13) and
+  React/Supabase/network/clock. **100% branch coverage; golden fixtures (F1–F10, F12, F13) and
   property tests pass.**
 - **Database layer** (Phase 1) — Postgres migrations for all 21 tables with **complete
   row-level security** and an automated isolation test that proves each athlete sees only
@@ -74,6 +74,7 @@ Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.e
 | Load | `load/tss`, `trimp`, `srpe`, `fitness` | F6 |
 | Planning (§8) | `plan/{macro,micro,taper,assemble,invariants}`, `distribution` | F7, F8, I5–I11 |
 | Adaptation (§10) | `readiness/{score,response,return}`, `plan/{reschedule,replan}` | F9, F10, I12, I13 |
+| Durability (§11) | `durability/decoupling` | F12 |
 | Field tests (§12) | `plan/fieldtest` | §12 placement rules |
 | Confidence → behaviour (§2.4) | `confidence` | ties I15 |
 | Purity / determinism | (all) | I16 |

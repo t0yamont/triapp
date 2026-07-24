@@ -72,7 +72,7 @@ Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.e
 | Athlete model | `anchors/hrMax`, `hrRest`, `criticalPower`, `dfaAlpha1`, `reconcile` | F3, F4, F5, I14 |
 | Zones (both modes) | `zones/build`, `zones/seiler` | F1, F2, I1–I4 |
 | Load | `load/tss`, `trimp`, `srpe`, `fitness` | F6 |
-| Planning (§8) | `plan/{macro,micro,taper,assemble,invariants}`, `distribution` | F7, F8, I5–I11 |
+| Planning (§8) | `plan/{macro,micro,taper,assemble,generate,invariants}`, `distribution` | F7, F8, I5–I11 |
 | Adaptation (§10) | `readiness/{score,response,return}`, `plan/{reschedule,replan}` | F9, F10, I12, I13 |
 | Durability (§11) | `durability/decoupling` | F12 |
 | Field tests (§12) | `plan/fieldtest` | §12 placement rules |

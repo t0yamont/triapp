@@ -61,7 +61,7 @@ export default function AvailabilityPage() {
     });
     setBusy(false);
     if (dbError) return setError(dbError.message);
-    router.push('/today');
+    router.push('/onboarding/plan');
   }
 
   return (

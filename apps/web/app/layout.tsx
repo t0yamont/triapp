@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
+import { AuroraBackground } from '../components/AuroraBackground';
+import { currentClimate } from '../lib/today-demo';
 
 export const metadata: Metadata = {
   title: 'IronFlow',
@@ -10,7 +12,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen font-sans text-body text-text antialiased">{children}</body>
+      <body className="min-h-screen font-sans text-body text-text antialiased">
+        <AuroraBackground climate={currentClimate()} />
+        {children}
+      </body>
     </html>
   );
 }

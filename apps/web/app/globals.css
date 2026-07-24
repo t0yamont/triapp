@@ -58,20 +58,8 @@ body::before {
   background-size: 46px 46px;
   mask-image: radial-gradient(ellipse 130% 100% at 50% 0%, #000 50%, transparent 100%);
 }
-body::after {
-  /* aurora bloom — bright enough that the frosted panels refract real colour */
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -3;
-  background:
-    radial-gradient(48% 52% at 10% 2%, rgba(124, 108, 245, 0.55), transparent 66%),
-    radial-gradient(46% 50% at 96% 26%, rgba(52, 224, 200, 0.36), transparent 68%),
-    radial-gradient(70% 65% at 72% 112%, rgba(109, 139, 255, 0.5), transparent 70%),
-    radial-gradient(40% 44% at 50% 48%, rgba(124, 108, 245, 0.16), transparent 72%);
-  filter: blur(8px);
-  animation: aurora-drift 22s ease-in-out infinite;
-}
+/* The aurora bloom is rendered by <AuroraBackground> (components/AuroraBackground.tsx) so it
+   can be tinted by the athlete's readiness climate; the grid above stays static. */
 
 @layer components {
   /* Frosted-glass panel: a translucent dark fill (so the aurora shows through) under a

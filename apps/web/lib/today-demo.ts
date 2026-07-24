@@ -17,6 +17,7 @@ import {
   type Readiness,
   type SZone,
 } from '@ironflow/core/physio';
+import { readinessClimate, type Climate } from './climate';
 import { WEEKDAYS } from './days';
 
 export type ViewSport = 'run' | 'bike' | 'swim' | 'strength';
@@ -61,6 +62,7 @@ export interface TodayView {
   isSample: boolean;
   athleteName: string;
   dateLabel: string;
+  climate: Climate;
   readiness: Readiness;
   session: PlannedSession;
   effectiveZone: SZone;
@@ -146,6 +148,9 @@ function buildAttention(adaptation: AdaptationResult): AttentionItem[] {
   return items;
 }
 
+// The sample athlete is mid-Build (not peaking) — the climate follows their readiness.
+const PEAKING = false;
+
 export function buildTodayView(): TodayView {
   const readiness = readinessScore(READINESS_INPUTS);
   const adaptation = adaptToday(READINESS_HISTORY, PLANNED_SESSION.plannedZone);
@@ -155,6 +160,7 @@ export function buildTodayView(): TodayView {
     isSample: true,
     athleteName: 'Sample athlete',
     dateLabel: 'Thursday, Build week 3',
+    climate: readinessClimate({ band: readiness.band, action: adaptation.action, peaking: PEAKING }),
     readiness,
     session: PLANNED_SESSION,
     effectiveZone,
@@ -162,4 +168,11 @@ export function buildTodayView(): TodayView {
     week: buildWeek(),
     attention: buildAttention(adaptation),
   };
+}
+
+/** The athlete's ambient readiness climate — drives the background tint app-wide (layout). */
+export function currentClimate(): Climate {
+  const readiness = readinessScore(READINESS_INPUTS);
+  const adaptation = adaptToday(READINESS_HISTORY, PLANNED_SESSION.plannedZone);
+  return readinessClimate({ band: readiness.band, action: adaptation.action, peaking: PEAKING });
 }

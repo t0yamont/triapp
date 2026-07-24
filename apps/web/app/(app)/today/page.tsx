@@ -1,18 +1,37 @@
-import { Card } from '@ironflow/ui';
+import { buildTodayView } from '../../../lib/today-demo';
+import { ReadinessCard } from '../../../components/today/ReadinessCard';
+import { SessionCard } from '../../../components/today/SessionCard';
+import { WeekStrip } from '../../../components/today/WeekStrip';
+import { AttentionCard } from '../../../components/today/AttentionCard';
 
 export default function TodayPage() {
+  // Computed by the pure engine (@ironflow/core/physio) at render — no client JS needed.
+  const view = buildTodayView();
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-h1 text-text">Today</h1>
-      <Card className="flex flex-col gap-2">
-        <h2 className="text-h2 text-text">You&apos;re set up.</h2>
-        <p className="text-body text-muted">
-          Your profile, consent and availability are captured. Connecting a device and generating
-          your first plan come next — the engine that builds it (thresholds, zones, load,
-          periodisation) is already implemented and tested in{' '}
-          <code className="font-mono text-faint">packages/core/physio</code>.
-        </p>
-      </Card>
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-h1 text-text">Today</h1>
+          <span className="text-label text-muted">{view.dateLabel}</span>
+        </div>
+        {view.isSample ? (
+          <span className="rounded-control border border-white/10 bg-raised px-3 py-1 text-label text-muted">
+            Preview · sample athlete until a plan &amp; device are connected
+          </span>
+        ) : null}
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <div className="flex flex-col gap-6">
+          <SessionCard session={view.session} adaptation={view.adaptation} effectiveZone={view.effectiveZone} />
+          <WeekStrip week={view.week} />
+        </div>
+        <div className="flex flex-col gap-6">
+          <ReadinessCard readiness={view.readiness} />
+          <AttentionCard items={view.attention} />
+        </div>
+      </div>
     </div>
   );
 }

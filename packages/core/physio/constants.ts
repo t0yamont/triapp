@@ -70,6 +70,23 @@ export const SWC_MULTIPLIER = 0.5;
 export const HRV_BASELINE_DAYS = 60;
 export const HRV_ROLLING_DAYS = 7;
 
+// ── Readiness response — asymmetric, downgrade-only (§10.2) ───────────────────
+// Thresholds transcribed from spec/03-ALGORITHM.md §10.2. REFERENCES.md §"Readiness /
+// HRV-guided training" (Manresa-Rocamora et al. 2021; Vesterinen et al. 2016; Javaloyes
+// et al. 2019/2020): reduce on bad signals, never increase — the demonstrated benefit is
+// fewer negative responders, so the response is deliberately conservative.
+export const READINESS_BELOW_DAYS_S3_DOWNGRADE = 1; // 1 below-day + S3 today → S3→S2
+export const READINESS_BELOW_DAYS_REDUCE = 2; // 2 consecutive below-days → easy + trim week
+export const READINESS_BELOW_DAYS_RECOVERY = 4; // 4+ below-days → convert week to recovery
+export const READINESS_HRV_CRASH_SD = 2; // HRV >2 SD below baseline → recovery (crash)
+export const READINESS_RHR_ELEVATED_BPM = 7; // RHR >7 bpm above baseline is "elevated"
+export const READINESS_RHR_ELEVATED_DAYS = 2; // ...for 2 days → same as the 2-day rule
+export const READINESS_WEEK_REDUCTION_FRAC = 0.1; // 2-day rule trims the week target 10%
+export const READINESS_S3_SUPPRESSION_DAYS = 5; // recovery conversion suppresses S3 for 5 days
+// Recovery-week load target = midpoint of the G4 55–70% band; the mid-week conversion
+// reduces the week to this fraction of its planned load.
+export const RECOVERY_WEEK_LOAD_FRACTION = 0.62;
+
 // ── Durability — Maunder et al. 2021; Hunter et al. 2025 (§11) ───────────────
 export const DECOUPLING_TARGET_PCT = 5;
 export const DECOUPLING_MIN_SESSION_MIN = 75;

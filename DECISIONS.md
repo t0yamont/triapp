@@ -204,3 +204,29 @@ so it lives with the algorithm rather than in `constants.ts`.
 **Reason.** This gives rigorous, non-flaky coverage of every code path and every F4 assertion.
 A full end-to-end synthetic-RR fixture (fractional-noise synthesis with a known crossing) is a
 worthwhile follow-up but was not needed to satisfy F4.
+
+---
+
+## D-READINESS-MODEL — Response rules consume readiness bands, not raw streams
+
+**Decision.** The adaptive engine is two pure stages. `readiness/score.ts` maps whatever
+signals exist (HRV/RHR/sleep/wellness/completion) to a daily `{ score, band, components }`,
+reweighting proportionally over present inputs (§10.1). `readiness/response.ts` then consumes a
+*history of daily readiness* — each day a `band` plus the two signal-specific fields the rules
+name explicitly (`hrvZ` for the ">2 SD crash", `restingHrDeltaBpm` for the ">7 bpm for 2 days"
+rule) — and returns a single downgrade decision. The response layer never re-derives the score;
+it acts on the band the score layer already produced.
+
+**Reason.** §10.2's day-count rules are phrased against *readiness* ("below the SWC lower bound
+for N days"), so the trailing-band count is the right trigger; only the HRV-crash and RHR rules
+are signal-specific, so only those two carry dedicated fields. Keeping the two stages separate
+keeps each pure and independently testable and avoids threading raw 60-day baselines through the
+response path. F9's paired negative (above-band 3 days → no change) and I12 (never increases
+load) fall straight out of this shape.
+
+**Constants.** The §10.2 thresholds (1/2/4 below-days, 2 SD, 7 bpm/2 days, 10% trim, 5-day S3
+suppression) are transcribed into `constants.ts` with a REFERENCES.md citation (hard rule #1).
+The mid-week recovery conversion reduces the week to `RECOVERY_WEEK_LOAD_FRACTION` (0.62, the
+midpoint of the G4 55–70% band — promoted out of a local in `assemble.ts` so both callers share
+one cited value), i.e. −38%. The completion-rate→z mapping (85% neutral, 0.15 span) is a
+presentational scaling, not a physiological constant, and is commented as such in `score.ts`.

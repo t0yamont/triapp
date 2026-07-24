@@ -40,3 +40,7 @@ export * from './plan/assemble.js';
 
 // Session templates (§7)
 export * from './sessions/library.js';
+
+// Adaptive engine — readiness scoring & response rules (§10)
+export * from './readiness/score.js';
+export * from './readiness/response.js';

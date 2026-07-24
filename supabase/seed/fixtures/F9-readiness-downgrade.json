@@ -1,0 +1,26 @@
+{
+  "id": "F9",
+  "description": "Readiness downgrade (07-ACCEPTANCE.md §B F9)",
+  "input": {
+    "history": [
+      { "band": "within" },
+      { "band": "below" },
+      { "band": "below" }
+    ],
+    "todaySZone": "S3"
+  },
+  "expected": {
+    "action": "reduce_to_s1_or_rest",
+    "weekLoadDeltaPct": -10,
+    "reasonCode": "READINESS_2DAY_LOW"
+  },
+  "pairedNegative": {
+    "history": [
+      { "band": "above" },
+      { "band": "above" },
+      { "band": "above" }
+    ],
+    "todaySZone": "S3",
+    "expected": { "action": "none" }
+  }
+}

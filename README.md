@@ -15,12 +15,15 @@ This repository is being built in verifiable increments against the roadmap in
 
 - **Foundation** — Turborepo + pnpm workspace, shared TS config, Vitest + fast-check harness.
 - **`packages/core/physio` — the pure engine core**: athlete model, threshold detection,
-  zones, and load metrics (Phase 3), and the **planning engine** (Phase 5) — G1–G10
+  zones, and load metrics (Phase 3); the **planning engine** (Phase 5) — G1–G10
   progression **guardrails**, taper, distribution policy, sport-specific session templates,
-  macrocycle layout, microcycle construction, and full **plan assembly**. The Phase-5 gate
-  passes: *a 24-week Ironman plan that satisfies every invariant with no gaps*. Pure
-  functions, no React/Supabase/network/clock. **100% branch coverage; golden fixtures
-  (F1–F8, F13) and property tests pass.**
+  macrocycle layout, microcycle construction, and full **plan assembly**; and the
+  **adaptive engine** (Phase 6) — daily **readiness scoring** (§10.1) and the asymmetric,
+  **downgrade-only response rules** (§10.2): a bad signal cuts today's load immediately, a
+  good one never adds (I12), and every change emits exactly one audited mutation with an
+  athlete-readable sentence (I13). The Phase-5 gate passes: *a 24-week Ironman plan that
+  satisfies every invariant with no gaps*. Pure functions, no React/Supabase/network/clock.
+  **100% branch coverage; golden fixtures (F1–F9, F13) and property tests pass.**
 - **Database layer** (Phase 1) — Postgres migrations for all 21 tables with **complete
   row-level security** and an automated isolation test that proves each athlete sees only
   their own rows on every table. See [`supabase/`](./supabase).
@@ -58,6 +61,8 @@ Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.e
 | Athlete model | `anchors/hrMax`, `hrRest`, `criticalPower`, `dfaAlpha1`, `reconcile` | F3, F4, F5, I14 |
 | Zones (both modes) | `zones/build`, `zones/seiler` | F1, F2, I1–I4 |
 | Load | `load/tss`, `trimp`, `srpe`, `fitness` | F6 |
+| Planning (§8) | `plan/{macro,micro,taper,assemble,invariants}`, `distribution` | F7, F8, I5–I11 |
+| Adaptation (§10) | `readiness/{score,response}` | F9, I12, I13 |
 | Confidence → behaviour (§2.4) | `confidence` | ties I15 |
 | Purity / determinism | (all) | I16 |
 

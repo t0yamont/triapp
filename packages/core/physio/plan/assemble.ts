@@ -6,6 +6,7 @@
  * invariant, with a complete phase layout and no gaps.
  */
 
+import { RECOVERY_WEEK_LOAD_FRACTION } from '../constants.js';
 import { applyRampCap } from './invariants.js';
 import { layoutMacrocycle } from './macro.js';
 import { constructMicrocycle, type Availability } from './micro.js';
@@ -32,8 +33,6 @@ export interface PlanWeekResult {
   loadTarget: number;
   week: GuardrailWeek;
 }
-
-const RECOVERY_FRACTION = 0.62; // mid of the 55–70% band (G4)
 
 const mean = (xs: number[], seed: number): number =>
   xs.length > 0 ? xs.reduce((a, b) => a + b, 0) / xs.length : seed;
@@ -65,7 +64,7 @@ export function assemblePlan(input: PlanInput): PlanWeekResult[] {
   for (let i = 0; i < loadingCount; i++) {
     if (macro[i]!.isRecoveryWeek) {
       const prior = actual[i - 1]!; // a recovery week is never the first week
-      build(i, Math.round(RECOVERY_FRACTION * prior), prior);
+      build(i, Math.round(RECOVERY_WEEK_LOAD_FRACTION * prior), prior);
     } else {
       const rolling = mean(actual.slice(-3), startingLoad);
       build(i, Math.round(applyRampCap(rolling * 1.1, rolling, confidence, trainingAgeYears).load));

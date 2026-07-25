@@ -64,6 +64,20 @@ export function addDaysISO(iso: string, days: number): string {
 const dayOffset = (dayOfWeek: number, weekStartDay: number): number => (dayOfWeek - weekStartDay + 7) % 7;
 
 /**
+ * Weekday of an ISO calendar date, 0 = Sun .. 6 = Sat. Parsed as UTC because a plain date
+ * has no timezone — local parsing would give a different answer per zone (hard rule #8).
+ */
+export function dayOfWeekISO(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** The start of the training week containing `iso` (Monday by default). */
+export function weekStartISO(iso: string, weekStartDay = 1): string {
+  return addDaysISO(iso, -dayOffset(dayOfWeekISO(iso), weekStartDay));
+}
+
+/**
  * Assemble a plan and schedule every session onto a real date. Workouts are returned in
  * chronological order, ready to persist.
  */

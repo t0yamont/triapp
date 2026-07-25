@@ -10,6 +10,7 @@
 
 import {
   addDaysISO,
+  dayOfWeekISO,
   distributionTarget,
   type CourseType,
   type GeneratedPlan,
@@ -17,6 +18,7 @@ import {
   type PlanWeekResult,
   type ScheduledWorkout,
   type SessionPurpose,
+  type WeekSession,
 } from '@ironflow/core/physio';
 import type { IronflowClient } from '../client.js';
 import type { Json } from '../database.types.js';
@@ -67,6 +69,27 @@ export function toWorkoutRow(
     planned_duration_min: sw.durationMin,
     planned_load: sw.load,
     structure: workoutStructure(sw),
+  };
+}
+
+/** Sports the planner schedules; a stored workout outside this set has no engine session. */
+const PLAN_SPORTS = new Set<string>(['run', 'bike', 'swim', 'brick', 'strength']);
+
+/**
+ * The inverse of `toWorkoutRow`: a stored workout back as an engine `WeekSession`, so the
+ * planning functions (moveSession, validateWeek) operate on a persisted week unchanged.
+ * Returns null for a sport the planner never schedules.
+ */
+export function fromWorkoutRow(row: Tables<'workouts'>): WeekSession | null {
+  if (!PLAN_SPORTS.has(row.sport)) return null;
+  return {
+    dayOfWeek: dayOfWeekISO(row.scheduled_date),
+    sport: row.sport as PlanSport,
+    sZone: row.goal_zone,
+    purpose: row.purpose,
+    durationMin: row.planned_duration_min,
+    load: row.planned_load,
+    isHard: row.is_key_session,
   };
 }
 

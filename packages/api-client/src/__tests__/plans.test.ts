@@ -1,6 +1,7 @@
 import { generatePlan, type GeneratePlanInput } from '@ironflow/core/physio';
 import { describe, expect, it } from 'vitest';
 import {
+  fromWorkoutRow,
   toPlanWeekRow,
   toTrainingPlanRow,
   toWorkoutRow,
@@ -96,6 +97,26 @@ describe('plan row mappers', () => {
     expect(workoutName(easyWorkout)).toMatch(/aerobic$/);
     expect(workoutTemplateId(hardWorkout)).toMatch(/\.key$/);
     expect(workoutTemplateId(easyWorkout)).not.toMatch(/\.key$/);
+  });
+
+  it('round-trips: every scheduled session survives write → read unchanged', () => {
+    for (const sw of plan.workouts) {
+      const row = { ...toWorkoutRow('a', 'p', 'w', sw), id: 'x', status: 'scheduled' } as never;
+      expect(fromWorkoutRow(row)).toEqual({
+        dayOfWeek: sw.dayOfWeek,
+        sport: sw.sport,
+        sZone: sw.sZone,
+        purpose: sw.isHard ? 'vo2max' : 'aerobic_volume',
+        durationMin: sw.durationMin,
+        load: sw.load,
+        isHard: sw.isHard,
+      });
+    }
+  });
+
+  it('skips a stored workout the planner never schedules', () => {
+    const row = { ...toWorkoutRow('a', 'p', 'w', easyWorkout), sport: 'other' } as never;
+    expect(fromWorkoutRow(row)).toBeNull();
   });
 
   it('every workout maps to a persistence-valid row', () => {

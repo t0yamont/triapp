@@ -2,8 +2,9 @@
 
 import { isValidWeek, moveSession, type GuardrailWeek, type PlanSport, type WeekSession } from '@ironflow/core/physio';
 import { cn } from '@ironflow/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { WEEKDAYS } from '../../lib/days';
+import { dayOfWeekISO, todayISO, useLiveWeek } from '../../lib/live-plan';
 import {
   AVAILABLE_DAYS,
   SAMPLE_WEEK,
@@ -60,13 +61,20 @@ function SessionChip({
 }
 
 export function WeekBoard() {
+  const { live } = useLiveWeek();
   const [week, setWeek] = useState<GuardrailWeek>(SAMPLE_WEEK);
   const [selected, setSelected] = useState<Pick | null>(null);
   const [feedback, setFeedback] = useState<Result | null>(null);
   const [history, setHistory] = useState<GuardrailWeek | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
+  // Swap the sample for the persisted week once it loads (fires once per mount).
+  useEffect(() => {
+    if (live) setWeek(live.week);
+  }, [live]);
+
   const valid = isValidWeek(week);
+  const todayIndex = live ? dayOfWeekISO(todayISO()) : TODAY_INDEX;
 
   function applyMove(fromDay: number, toDay: number, sport: PlanSport) {
     setSelected(null);
@@ -106,7 +114,9 @@ export function WeekBoard() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-label uppercase tracking-widest text-faint">Build · week 3</span>
+          <span className="text-label uppercase tracking-widest text-faint">
+            {live ? `${live.week.phase.replace('_', ' ')} · this week` : 'Build · week 3 · sample'}
+          </span>
           <span
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label',
@@ -126,7 +136,7 @@ export function WeekBoard() {
         <div className="grid min-w-[820px] grid-cols-7 gap-2.5">
           {WEEKDAYS.map((day) => {
             const sessions = week.sessions.filter((s) => s.dayOfWeek === day.index);
-            const isToday = day.index === TODAY_INDEX;
+            const isToday = day.index === todayIndex;
             const isTarget = selected != null || dragOver === day.index;
             return (
               <div

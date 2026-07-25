@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDaysISO, generatePlan, type GeneratePlanInput } from '../plan/generate.js';
+import { addDaysISO, dayOfWeekISO, generatePlan, weekStartISO, type GeneratePlanInput } from '../plan/generate.js';
 
 const availability = {
   dayMinutes: { 0: 240, 1: 60, 2: 90, 3: 60, 4: 75, 5: 45, 6: 240 } as Record<number, number>,
@@ -27,6 +27,20 @@ describe('addDaysISO', () => {
     expect(addDaysISO('2026-12-31', 1)).toBe('2027-01-01');
     expect(addDaysISO('2024-02-28', 1)).toBe('2024-02-29');
     expect(addDaysISO('2026-08-10', -7)).toBe('2026-08-03');
+  });
+});
+
+describe('calendar-week helpers', () => {
+  it('reads the weekday of a plain date as UTC (timezone-independent)', () => {
+    expect(dayOfWeekISO('2026-08-03')).toBe(1); // Monday
+    expect(dayOfWeekISO('2026-08-09')).toBe(0); // Sunday
+  });
+
+  it('anchors the training week to the Monday on or before the date', () => {
+    expect(weekStartISO('2026-08-03')).toBe('2026-08-03'); // already Monday
+    expect(weekStartISO('2026-08-06')).toBe('2026-08-03'); // Thursday → back to Monday
+    expect(weekStartISO('2026-08-09')).toBe('2026-08-03'); // Sunday → the Monday 6 days back
+    expect(weekStartISO('2026-08-02', 0)).toBe('2026-08-02'); // Sunday-start weeks
   });
 });
 

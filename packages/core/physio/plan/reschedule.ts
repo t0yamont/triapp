@@ -20,6 +20,8 @@ export const RESCHEDULE_REASON = {
   APPLIED: 'ATHLETE_MOVE_APPLIED',
   REPAIRED: 'ATHLETE_MOVE_REPAIRED',
   UNRESOLVED: 'ATHLETE_MOVE_UNRESOLVED',
+  /** The athlete undid a move that had already been committed — its own audited event. */
+  UNDONE: 'ATHLETE_MOVE_UNDONE',
 } as const;
 
 /** Two hard sessions on one day is not one of the coded weekly guardrails, but it is the

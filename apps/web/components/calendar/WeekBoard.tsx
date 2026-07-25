@@ -1,10 +1,19 @@
 'use client';
 
-import { isValidWeek, moveSession, type GuardrailWeek, type PlanSport, type WeekSession } from '@ironflow/core/physio';
+import { persistWorkoutMoves, resolveWeekEdits, type MovableWorkout, type WorkoutMove } from '@ironflow/api-client';
+import {
+  RESCHEDULE_REASON,
+  isValidWeek,
+  moveSession,
+  type GuardrailWeek,
+  type PlanSport,
+  type WeekSession,
+} from '@ironflow/core/physio';
 import { cn } from '@ironflow/ui';
 import { useEffect, useState } from 'react';
 import { WEEKDAYS } from '../../lib/days';
 import { dayOfWeekISO, todayISO, useLiveWeek } from '../../lib/live-plan';
+import { useSupabase } from '../../lib/supabase';
 import {
   AVAILABLE_DAYS,
   SAMPLE_WEEK,
@@ -16,6 +25,22 @@ import {
 
 type Pick = { fromDay: number; sport: PlanSport };
 type Result = ReturnType<typeof moveSession>;
+type SaveState = { status: 'idle' | 'saving' | 'saved' } | { status: 'error'; message: string };
+
+/** Restore these rows to the dates they held before the move — the undo write. */
+const movesBackTo = (snapshot: readonly MovableWorkout[], current: readonly MovableWorkout[]): WorkoutMove[] =>
+  snapshot.flatMap((was) => {
+    const now = current.find((r) => r.id === was.id);
+    if (!now || now.scheduled_date === was.scheduled_date) return [];
+    return [{ id: was.id, scheduledDate: was.scheduled_date, originalDate: was.original_scheduled_date ?? was.scheduled_date }];
+  });
+
+/** Apply persisted moves to the local row cache, so a second move builds on the first. */
+const withMovesApplied = (rows: readonly MovableWorkout[], moves: readonly WorkoutMove[]): MovableWorkout[] =>
+  rows.map((r) => {
+    const move = moves.find((m) => m.id === r.id);
+    return move ? { ...r, scheduled_date: move.scheduledDate, original_scheduled_date: move.originalDate } : r;
+  });
 
 const shortOf = (index: number): string => WEEKDAYS.find((d) => d.index === index)?.short ?? '';
 
@@ -62,19 +87,44 @@ function SessionChip({
 
 export function WeekBoard() {
   const { live } = useLiveWeek();
+  const supabase = useSupabase();
   const [week, setWeek] = useState<GuardrailWeek>(SAMPLE_WEEK);
   const [selected, setSelected] = useState<Pick | null>(null);
   const [feedback, setFeedback] = useState<Result | null>(null);
   const [history, setHistory] = useState<GuardrailWeek | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  // The persisted rows behind `week`, kept in step so a second move builds on the first.
+  const [rows, setRows] = useState<MovableWorkout[]>([]);
+  const [rowsBefore, setRowsBefore] = useState<MovableWorkout[] | null>(null);
+  const [save, setSave] = useState<SaveState>({ status: 'idle' });
 
   // Swap the sample for the persisted week once it loads (fires once per mount).
   useEffect(() => {
-    if (live) setWeek(live.week);
+    if (!live) return;
+    setWeek(live.week);
+    setRows(live.rows);
   }, [live]);
 
   const valid = isValidWeek(week);
   const todayIndex = live ? dayOfWeekISO(todayISO()) : TODAY_INDEX;
+
+  /** Write a set of moves plus its audit row; on failure, put the board back. */
+  async function commit(moves: WorkoutMove[], mutation: Result['mutation'], revertTo: GuardrailWeek, revertRows: MovableWorkout[]) {
+    if (!live || !supabase || !mutation || moves.length === 0) return;
+    setSave({ status: 'saving' });
+    try {
+      await persistWorkoutMoves(supabase, { athleteId: live.athleteId, planId: live.planId, moves, mutation });
+      setRows((current) => withMovesApplied(current, moves));
+      setSave({ status: 'saved' });
+    } catch (error) {
+      // The write didn't land, so the board must not keep showing it as though it did.
+      setWeek(revertTo);
+      setRows(revertRows);
+      setRowsBefore(null);
+      setHistory(null);
+      setSave({ status: 'error', message: error instanceof Error ? error.message : 'Could not save that move.' });
+    }
+  }
 
   function applyMove(fromDay: number, toDay: number, sport: PlanSport) {
     setSelected(null);
@@ -85,9 +135,21 @@ export function WeekBoard() {
       setFeedback(result);
       return;
     }
-    setHistory(week);
+    const priorWeek = week;
+    const priorRows = rows;
+    setHistory(priorWeek);
     setWeek(result.week);
     setFeedback(result);
+
+    // Only commit a week the engine actually cleared: `remainingViolations` empty ⇒ safe to
+    // commit. The unresolved case still returns a mutation, so it can't be the gate — that
+    // week stays local for the athlete to review or undo.
+    if (!live || result.remainingViolations.length > 0) {
+      setSave({ status: 'idle' });
+      return;
+    }
+    setRowsBefore(priorRows);
+    void commit(resolveWeekEdits(priorRows, result.edits, live.weekStart), result.mutation, priorWeek, priorRows);
   }
 
   function onChipPick(e: React.MouseEvent, session: WeekSession) {
@@ -105,9 +167,26 @@ export function WeekBoard() {
 
   function undo() {
     if (!history) return;
-    setWeek(history);
+    const restoring = history;
+    const snapshot = rowsBefore;
+    setWeek(restoring);
     setHistory(null);
     setFeedback(null);
+
+    // If the move was committed, undoing it is a plan change too — it gets its own audit row
+    // rather than silently diverging the board from what's stored.
+    if (!live || !snapshot) return;
+    setRowsBefore(null);
+    void commit(
+      movesBackTo(snapshot, rows),
+      {
+        actor: 'athlete',
+        reasonCode: RESCHEDULE_REASON.UNDONE,
+        reasonText: 'Undid the move — the sessions went back to the days they were on.',
+      },
+      week,
+      rows,
+    );
   }
 
   return (
@@ -127,10 +206,31 @@ export function WeekBoard() {
             {valid ? 'Guardrails clear' : 'Needs attention'}
           </span>
         </div>
-        <span className="text-label text-muted">
-          {selected ? 'Now tap a day to move it there' : 'Tap a session, then a day — or drag it'}
-        </span>
+        <div className="flex items-center gap-3">
+          <SaveIndicator save={save} live={Boolean(live)} />
+          <span className="text-label text-muted">
+            {selected ? 'Now tap a day to move it there' : 'Tap a session, then a day — or drag it'}
+          </span>
+        </div>
       </div>
+
+      {save.status === 'error' ? (
+        <div className="glass flex items-start gap-3 rounded-card p-3 ring-1 ring-risk/30">
+          <p className="text-body text-risk">
+            {save.message} — the board has been put back to what&rsquo;s saved.
+          </p>
+          <button
+            type="button"
+            onClick={() => setSave({ status: 'idle' })}
+            className="ml-auto shrink-0 text-faint transition-colors hover:text-text"
+            aria-label="Dismiss"
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="h-4 w-4">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
 
       <div className="overflow-x-auto pb-1">
         <div className="grid min-w-[820px] grid-cols-7 gap-2.5">
@@ -193,6 +293,21 @@ export function WeekBoard() {
 
       {feedback ? <MoveFeedback result={feedback} onUndo={history ? undo : undefined} onDismiss={() => setFeedback(null)} /> : null}
     </div>
+  );
+}
+
+/**
+ * Whether the last move actually reached the database. Silent for the sample athlete, where
+ * there is nothing to save and claiming "saved" would be a lie.
+ */
+function SaveIndicator({ save, live }: { save: SaveState; live: boolean }) {
+  if (!live || save.status === 'idle' || save.status === 'error') return null;
+  const saving = save.status === 'saving';
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-label', saving ? 'text-muted' : 'text-ok')}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', saving ? 'animate-pulse bg-muted' : 'bg-ok')} aria-hidden />
+      {saving ? 'Saving…' : 'Saved'}
+    </span>
   );
 }
 

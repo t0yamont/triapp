@@ -14,10 +14,12 @@ import {
   distributionTarget,
   type CourseType,
   type GeneratedPlan,
+  type PlanMutation,
   type PlanSport,
   type PlanWeekResult,
   type ScheduledWorkout,
   type SessionPurpose,
+  type WeekEdit,
   type WeekSession,
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
@@ -207,4 +209,168 @@ export async function getWorkoutsInRange(
 export async function getPlanWeeks(client: TriflowClient, planId: string): Promise<Tables<'plan_weeks'>[]> {
   const { data } = await client.from('plan_weeks').select('*').eq('plan_id', planId).order('week_number', { ascending: true });
   return data ?? [];
+}
+
+// ── Week repair write path (§10, hard rule #10) ──────────────────────────────
+
+/** The subset of a workout row needed to resolve a move. */
+export type MovableWorkout = Pick<Tables<'workouts'>, 'id' | 'sport' | 'scheduled_date' | 'original_scheduled_date'>;
+
+export interface WorkoutMove {
+  id: string;
+  /** The day this workout ends up on. */
+  scheduledDate: string;
+  /** The date it was *first* scheduled for — preserved across repeated moves. */
+  originalDate: string;
+}
+
+/** Days from the training week's start to a weekday (Mon-first), matching the engine's own. */
+const dayOffsetFromWeekStart = (dayOfWeek: number, weekStartDay = 1): number => (dayOfWeek - weekStartDay + 7) % 7;
+
+/**
+ * Resolve a week's `WeekEdit[]` onto concrete workout rows: which row lands on which date.
+ *
+ * Edits are applied **sequentially against a mutating day map**, not resolved independently
+ * against the original layout. That matters: `moveSession` can emit a swap (run Mon→Tue,
+ * bike Tue→Mon) or move the same session twice, and resolving every edit against the
+ * starting positions would mis-assign both. Returns only rows whose day actually changed.
+ */
+export function resolveWeekEdits(
+  rows: readonly MovableWorkout[],
+  edits: readonly WeekEdit[],
+  weekStartDate: string,
+  weekStartDay = 1,
+): WorkoutMove[] {
+  const currentDay = new Map(rows.map((r) => [r.id, dayOfWeekISO(r.scheduled_date)]));
+  const sportOf = new Map(rows.map((r) => [r.id, r.sport as PlanSport]));
+
+  for (const edit of edits) {
+    // The row sitting on `fromDay` with this sport *right now*, after earlier edits applied.
+    let match: string | undefined;
+    for (const [id, day] of currentDay) {
+      if (day === edit.fromDay && sportOf.get(id) === edit.sport) {
+        match = id;
+        break;
+      }
+    }
+    if (match !== undefined) currentDay.set(match, edit.toDay);
+  }
+
+  const moves: WorkoutMove[] = [];
+  for (const row of rows) {
+    const finalDay = currentDay.get(row.id);
+    if (finalDay === undefined || finalDay === dayOfWeekISO(row.scheduled_date)) continue;
+    moves.push({
+      id: row.id,
+      scheduledDate: addDaysISO(weekStartDate, dayOffsetFromWeekStart(finalDay, weekStartDay)),
+      // Only the *first* move records an original date; later ones keep it.
+      originalDate: row.original_scheduled_date ?? row.scheduled_date,
+    });
+  }
+  return moves;
+}
+
+/**
+ * Commit a week repair: move the affected workouts and write the single `plan_mutations`
+ * audit row that hard rule #10 / invariant I13 require. `mutation` comes from the engine
+ * (`RescheduleResult.mutation`).
+ *
+ * Note that the engine emits a mutation for the *unresolved* case too (reason code
+ * `ATHLETE_MOVE_UNRESOLVED`), so its presence alone is not a commit signal — the contract is
+ * `remainingViolations` being empty ("empty ⇒ safe to commit"). Callers gate on that.
+ *
+ * Not a database transaction — Supabase's REST client can't span one — so if the audit
+ * insert fails, the already-applied workout moves are **rolled back** before throwing. That
+ * keeps rule #10 true in practice: a plan change is never left persisted without its audit
+ * row, in either direction.
+ *
+ * ponytail: the rollback is a compensating write, so a process death between the two steps
+ * still leaves an unaudited move. Fine for an athlete-initiated drag that errors visibly and
+ * can be retried; move both into a Postgres function called over RPC before anything writes
+ * plan changes unattended (weekly re-plan, readiness downgrades), where nobody is watching.
+ */
+export async function persistWorkoutMoves(
+  client: TriflowClient,
+  args: {
+    athleteId: string;
+    planId: string;
+    moves: readonly WorkoutMove[];
+    mutation: PlanMutation;
+    /** What the engine saw — stored for the audit trail, never read back by the app. */
+    engineInputs?: Json;
+  },
+): Promise<void> {
+  const { athleteId, planId, moves, mutation, engineInputs } = args;
+  if (moves.length === 0) return;
+
+  const ids = moves.map((m) => m.id);
+
+  // Snapshot the current rows first, so the audit row records real before/after values and a
+  // failed audit write can be undone.
+  const { data: priorRows, error: readError } = await client
+    .from('workouts')
+    .select('id, scheduled_date, original_scheduled_date')
+    .eq('athlete_id', athleteId)
+    .in('id', ids);
+  if (readError) throw readError;
+
+  const prior = new Map((priorRows ?? []).map((r) => [r.id, r]));
+
+  const applied: string[] = [];
+  const applyDate = async (id: string, scheduledDate: string, originalDate: string | null): Promise<void> => {
+    const { error } = await client
+      .from('workouts')
+      .update({
+        scheduled_date: scheduledDate,
+        original_scheduled_date: originalDate,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('athlete_id', athleteId); // explicit under service-role, redundant under RLS
+    if (error) throw error;
+  };
+
+  const rollback = async (): Promise<void> => {
+    for (const id of applied) {
+      const was = prior.get(id);
+      if (!was) continue;
+      try {
+        await applyDate(id, was.scheduled_date, was.original_scheduled_date);
+      } catch {
+        // Best effort: the original failure is the one worth reporting.
+      }
+    }
+  };
+
+  try {
+    for (const move of moves) {
+      await applyDate(move.id, move.scheduledDate, move.originalDate);
+      applied.push(move.id);
+    }
+  } catch (error) {
+    await rollback();
+    throw error;
+  }
+
+  const before = Object.fromEntries(moves.map((m) => [m.id, prior.get(m.id)?.scheduled_date ?? null]));
+  const after = Object.fromEntries(moves.map((m) => [m.id, m.scheduledDate]));
+
+  const { error: auditError } = await client.from('plan_mutations').insert({
+    athlete_id: athleteId,
+    plan_id: planId,
+    actor: mutation.actor,
+    reason_code: mutation.reasonCode,
+    reason_text: mutation.reasonText,
+    ...(mutation.ruleId ? { rule_id: mutation.ruleId } : {}),
+    affected_workout_ids: ids,
+    before: before as Json,
+    after: after as Json,
+    ...(engineInputs !== undefined ? { engine_inputs: engineInputs } : {}),
+  });
+
+  if (auditError) {
+    // An unaudited plan change violates hard rule #10 — undo it rather than keep it.
+    await rollback();
+    throw auditError;
+  }
 }

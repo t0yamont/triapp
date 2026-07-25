@@ -98,6 +98,11 @@ export interface LiveWeek {
   week: GuardrailWeek;
   strip: WeekStripView;
   comingUp: UpcomingSession[];
+  /** Everything a write-back needs: which plan, which week, and the rows behind the sessions. */
+  athleteId: string;
+  planId: string;
+  weekStart: string;
+  rows: WorkoutRow[];
 }
 
 /** This week's persisted plan, or null when there is nothing live (⇒ caller uses the sample). */
@@ -143,6 +148,10 @@ export function useLiveWeek(): { live: LiveWeek | null; loading: boolean } {
           },
           strip: toWeekStrip(rows, phase, today),
           comingUp: toComingUp(rows, today),
+          athleteId,
+          planId: plan.id,
+          weekStart: start,
+          rows,
         });
       } catch {
         done(null); // a read failure falls back to the sample rather than blanking the screen

@@ -464,3 +464,51 @@ distance — the catalog is a convenience, never a gate.
 **Known ceiling.** The catalog is a hand-maintained TS module (matching `eventMeta.ts`), so it
 goes stale and cannot be edited by a non-engineer. Marked `ponytail:` in the source with the
 upgrade path: a `race_catalog` table or an organiser feed, the moment either constraint bites.
+
+---
+
+## D-CALENDAR-PERSIST — Calendar moves are committed, with the first real audit row
+
+**Status:** implemented. **Spec:** §8.4/F10 (week repair); hard rule #10, invariant I13.
+
+**The gap.** `WeekBoard` ran `moveSession`, showed the repaired week and what the engine had
+moved, then kept all of it in React state. A refresh discarded it. Worse, `plan_mutations` —
+the table the schema calls "the product's credibility" — had **no writer anywhere in the
+application**; the only insert in the repo was an RLS test seed, despite the engine already
+returning a ready-made `PlanMutation` on every move.
+
+**The commit gate is `remainingViolations`, not `mutation`.** `moveSession` returns a
+mutation in the *unresolved* case too (`ATHLETE_MOVE_UNRESOLVED`), so its presence cannot mean
+"safe to save". The contract is the one `RescheduleResult` already documents — *"Guardrails
+still breached after the repair attempt (empty ⇒ safe to commit)"*. A move the engine can't
+rebalance stays local for the athlete to review or undo, matching the UI's own wording.
+
+**Mapping sessions back to rows.** `WeekSession` has no id, so `resolveWeekEdits` replays the
+engine's `WeekEdit[]` **sequentially against a mutating day map** rather than resolving each
+edit against the starting layout. That's required for correctness, not tidiness: a swap
+(run Mon→Tue, bike Tue→Mon) or a session moved twice both mis-assign under independent
+resolution. Unit-tested, including those two cases and an end-to-end agreement check against
+real `moveSession` output.
+
+**Atomicity.** The Supabase REST client can't span a transaction, so the workout updates and
+the audit insert are separate calls. If the audit insert fails, the applied moves are **rolled
+back** before throwing — rule #10 stays true in both directions rather than merely documented.
+`original_scheduled_date` is written on the first move only, so the true original survives
+repeated moves.
+
+**Undo is a plan change too.** Undoing a committed move writes its own reversal plus its own
+audit row (`ATHLETE_MOVE_UNDONE`, added to `RESCHEDULE_REASON`), instead of silently
+diverging the board from storage — which would have reintroduced the exact bug this closes.
+
+**Failure is visible.** A failed write reverts the board to what's stored and says so. The
+save indicator is suppressed entirely for the sample athlete, where "Saved" would be a lie.
+
+**Known ceiling.** The rollback is a compensating write, so a process death between the two
+steps can still leave an unaudited move. Marked `ponytail:`. Acceptable for an
+athlete-initiated drag that errors visibly and can be retried; move both into a Postgres
+function called over RPC before anything writes plan changes unattended (weekly re-plan,
+readiness downgrades), where nobody is watching to retry.
+
+**Not verified end-to-end.** The pure resolver is unit-tested and the whole path typechecks,
+but the actual Supabase round trip has not been exercised against a live database — no
+signed-in athlete with a persisted plan was available in this environment.

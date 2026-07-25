@@ -19,7 +19,8 @@ export default function CalendarPage() {
       <p className="text-label text-faint">
         Moves run through <code className="font-mono text-muted">moveSession</code> in
         <code className="font-mono text-muted"> @ironflow/core/physio</code> — the same pure, tested repair
-        engine (F10, §8.4). Every change would be written as one audited plan mutation.
+        engine (F10, §8.4). A move the engine clears is saved to your plan and written as one audited
+        plan mutation; one it can&rsquo;t rebalance stays here for you to review or undo.
       </p>
     </div>
   );

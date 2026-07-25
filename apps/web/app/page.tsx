@@ -5,7 +5,7 @@ export default function WelcomePage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-8 px-6 py-16">
       <div className="flex flex-col gap-4">
-        <span className="text-label uppercase tracking-widest text-accent">IronFlow</span>
+        <span className="text-label uppercase tracking-widest text-accent">TriFlow</span>
         <h1 className="text-display text-text">Training anchored to your body, not a formula.</h1>
         <ul className="flex flex-col gap-2 text-body text-muted">
           <li>· Finds your real aerobic and threshold heart rates from ordinary training — no lab.</li>
@@ -32,7 +32,7 @@ export default function WelcomePage() {
       </Card>
 
       <p className="text-label text-faint">
-        IronFlow provides training guidance, not medical advice. Seek medical clearance before
+        TriFlow provides training guidance, not medical advice. Seek medical clearance before
         beginning a training programme.
       </p>
     </main>

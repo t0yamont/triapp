@@ -1,16 +1,16 @@
-# Obsidian Brain Update — IronFlow
+# Obsidian Brain Update — TriFlow
 
 **For:** the agent maintaining the Obsidian vault for this project.
 **Task:** fold the state below into the vault. Nothing here needs verifying against the repo —
 it is written from the repo as of this commit.
 
-Suggested note structure: one MOC (`IronFlow`) linking to `IronFlow/Engine`,
-`IronFlow/Web App`, `IronFlow/Data & Infra`, `IronFlow/Decisions`, `IronFlow/Open Questions`,
-`IronFlow/Roadmap`.
+Suggested note structure: one MOC (`TriFlow`) linking to `TriFlow/Engine`,
+`TriFlow/Web App`, `TriFlow/Data & Infra`, `TriFlow/Decisions`, `TriFlow/Open Questions`,
+`TriFlow/Roadmap`.
 
 ---
 
-## 1. What IronFlow is
+## 1. What TriFlow is
 
 An adaptive multi-sport endurance training platform (triathlon / running / cycling). The
 **physiology engine is the product**; everything else feeds it data or displays its output.

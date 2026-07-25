@@ -1,4 +1,4 @@
-// IronFlow engine demo — proves the purity contract (00-AGENT-BRIEF.md): the physiology
+// TriFlow engine demo — proves the purity contract (00-AGENT-BRIEF.md): the physiology
 // engine runs in a plain Node script with NO environment, no Supabase, no network, no clock.
 //
 //   pnpm --filter @ironflow/core build   # emit dist/
@@ -65,7 +65,7 @@ const model = {
   updatedAt: NOW,
 };
 
-console.log('IRONFLOW ENGINE DEMO — pure, no environment\n' + '='.repeat(52));
+console.log('TRIFLOW ENGINE DEMO — pure, no environment\n' + '='.repeat(52));
 console.log(
   `\nHRmax  ${hrMax.value} bpm   [${hrMax.provenance}, conf ${hrMax.confidence}]` +
     `\nHRrest ${hrRest.value.toFixed(1)} bpm  [${hrRest.provenance}, conf ${hrRest.confidence}]` +

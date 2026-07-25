@@ -1,4 +1,4 @@
-// IronFlow design tokens — "Instrument glass" (see apps/web/DESIGN.md). Single source of
+// TriFlow design tokens — "Instrument glass" (see apps/web/DESIGN.md). Single source of
 // truth; consumed by apps/web's tailwind.config and applied to packages/ui components.
 // A near-black cool ground, frosted-glass panels, one periwinkle-indigo accent, an aurora
 // gradient reserved for the brandmark and the readiness ring.
@@ -35,7 +35,7 @@ export default {
       },
       fontFamily: {
         sans: [
-          'var(--font-inter)',
+          'var(--font-geist)',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',

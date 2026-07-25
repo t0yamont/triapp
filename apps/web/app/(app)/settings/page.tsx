@@ -134,7 +134,7 @@ export default function SettingsPage() {
           <Section title="Account">
             <div className="flex flex-col gap-3">
               <p className="text-body text-muted">
-                IronFlow provides training guidance, not medical advice. Your health data is yours — export or
+                TriFlow provides training guidance, not medical advice. Your health data is yours — export or
                 delete it any time.
               </p>
               <div className="flex flex-wrap gap-3">

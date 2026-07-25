@@ -1,11 +1,11 @@
-# DESIGN.md — IronFlow web ("Instrument glass")
+# DESIGN.md — TriFlow web ("Instrument glass")
 
-Durable visual system for the IronFlow web app. Mode: **Operate**. Product truth lives in
+Durable visual system for the TriFlow web app. Mode: **Operate**. Product truth lives in
 PRODUCT.md; this file owns the look.
 
 ## Direction contract
 
-**THESIS.** IronFlow is a scientific instrument, so the interface is a calm mission console,
+**THESIS.** TriFlow is a scientific instrument, so the interface is a calm mission console,
 not a lifestyle app. It refuses the flat-card admin dashboard and the loud gradient-hero SaaS
 page. Depth comes from *material* — frosted glass floating over a near-black aurora ground —
 never from decoration.

@@ -1,6 +1,6 @@
 # Algorithm Review — July 2026
 
-Research-backed review of the IronFlow engine against current endurance-training practice, plus
+Research-backed review of the TriFlow engine against current endurance-training practice, plus
 the onboarding gaps you flagged (race date, goal time, baseline ability per sport).
 
 > **Update — Perplexity re-run.** The original pass used built-in web search only

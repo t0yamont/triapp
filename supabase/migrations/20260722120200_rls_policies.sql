@@ -1,5 +1,5 @@
 -- =============================================================================
--- IronFlow — 0003 Row Level Security
+-- TriFlow — 0003 Row Level Security
 --
 -- RLS on EVERY table, no exceptions (CLAUDE.md §Hard rule 4; 02-ARCHITECTURE.md §6).
 -- The spec SQL enabled RLS on all tables but wrote policies for only three ("replicate

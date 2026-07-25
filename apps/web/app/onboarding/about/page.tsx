@@ -105,7 +105,7 @@ export default function AboutPage() {
             <label className="flex items-start gap-3 text-label text-muted">
               <input type="checkbox" className="mt-0.5" {...register('healthDataConsent')} />
               <span>
-                I consent to IronFlow processing my health and fitness data (special-category data) to
+                I consent to TriFlow processing my health and fitness data (special-category data) to
                 build my physiological model and training plan.
               </span>
             </label>
@@ -113,7 +113,7 @@ export default function AboutPage() {
             <label className="flex items-start gap-3 text-label text-muted">
               <input type="checkbox" className="mt-0.5" {...register('medicalDisclaimer')} />
               <span>
-                I understand IronFlow provides training guidance, not medical advice, and that I should
+                I understand TriFlow provides training guidance, not medical advice, and that I should
                 seek medical clearance before beginning a training programme.
               </span>
             </label>

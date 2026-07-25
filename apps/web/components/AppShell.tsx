@@ -65,7 +65,7 @@ function Brand() {
           <path d="M3 11h3l2-6 3.5 11 2-9 1.5 4H17" />
         </svg>
       </span>
-      <span className="text-label font-semibold uppercase tracking-widest text-text">IronFlow</span>
+      <span className="text-label font-semibold uppercase tracking-widest text-text">TriFlow</span>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 -- =============================================================================
--- IronFlow — 0002 schema (tables + indexes)
+-- TriFlow — 0002 schema (tables + indexes)
 -- Source: spec/04-DATA-MODEL.sql, reproduced faithfully.
 -- Conventions: all timestamps timestamptz (UTC); every physiological estimate carries
 -- value + confidence + provenance + measured_at. RLS is applied in migration 0003.

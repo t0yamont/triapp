@@ -1,5 +1,5 @@
 -- =============================================================================
--- IronFlow — 0001 extensions + enums
+-- TriFlow — 0001 extensions + enums
 -- Source: spec/04-DATA-MODEL.sql. See DECISIONS.md for deviations.
 --
 -- pg_cron / pg_net are NOT enabled here — the scheduled job lives in the optional

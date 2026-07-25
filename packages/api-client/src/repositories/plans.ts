@@ -20,7 +20,7 @@ import {
   type SessionPurpose,
   type WeekSession,
 } from '@ironflow/core/physio';
-import type { IronflowClient } from '../client.js';
+import type { TriflowClient } from '../client.js';
 import type { Json } from '../database.types.js';
 import type { Tables, TablesInsert } from '../types.js';
 
@@ -140,7 +140,7 @@ export function toTrainingPlanRow(athleteId: string, plan: GeneratedPlan, meta: 
  * run this server-side; a real transaction would use an Edge Function / RPC — see follow-up).
  */
 export async function insertGeneratedPlan(
-  client: IronflowClient,
+  client: TriflowClient,
   athleteId: string,
   plan: GeneratedPlan,
   meta: GeneratedPlanMeta,
@@ -174,7 +174,7 @@ export async function insertGeneratedPlan(
 // ── Reads ────────────────────────────────────────────────────────────────────
 
 /** The athlete's current active plan, or null. */
-export async function getActivePlan(client: IronflowClient, athleteId: string): Promise<Tables<'training_plans'> | null> {
+export async function getActivePlan(client: TriflowClient, athleteId: string): Promise<Tables<'training_plans'> | null> {
   const { data } = await client
     .from('training_plans')
     .select('*')
@@ -188,7 +188,7 @@ export async function getActivePlan(client: IronflowClient, athleteId: string): 
 
 /** Workouts scheduled in [fromDate, toDate] (inclusive ISO dates), chronological. */
 export async function getWorkoutsInRange(
-  client: IronflowClient,
+  client: TriflowClient,
   athleteId: string,
   fromDate: string,
   toDate: string,
@@ -204,7 +204,7 @@ export async function getWorkoutsInRange(
 }
 
 /** All weeks of a plan, ordered. */
-export async function getPlanWeeks(client: IronflowClient, planId: string): Promise<Tables<'plan_weeks'>[]> {
+export async function getPlanWeeks(client: TriflowClient, planId: string): Promise<Tables<'plan_weeks'>[]> {
   const { data } = await client.from('plan_weeks').select('*').eq('plan_id', planId).order('week_number', { ascending: true });
   return data ?? [];
 }

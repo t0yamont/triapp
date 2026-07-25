@@ -8,7 +8,7 @@
  */
 
 import { isDuplicate, type ParsedActivity } from '@ironflow/core/ingest';
-import type { IronflowClient } from '../client.js';
+import type { TriflowClient } from '../client.js';
 import { packFloat32, packInt16, packLatLng, toByteaHex } from '../streams.js';
 import type { TablesInsert } from '../types.js';
 
@@ -81,7 +81,7 @@ function richness(hasRr: boolean, hasStreams: boolean): number {
 export type UpsertOutcome = 'inserted' | 'idempotent_noop' | 'deduped_as_source' | 'promoted_primary';
 
 async function findActivityIdByProvider(
-  client: IronflowClient,
+  client: TriflowClient,
   provider: ParsedActivity['provider'],
   providerActivityId: string,
 ): Promise<string | null> {
@@ -95,7 +95,7 @@ async function findActivityIdByProvider(
 }
 
 async function findDuplicatePrimary(
-  client: IronflowClient,
+  client: TriflowClient,
   athleteId: string,
   a: ParsedActivity,
 ): Promise<{ id: string; has_rr_intervals: boolean; has_streams: boolean } | null> {
@@ -118,7 +118,7 @@ async function findDuplicatePrimary(
   return null;
 }
 
-async function insertActivity(client: IronflowClient, athleteId: string, a: ParsedActivity): Promise<string> {
+async function insertActivity(client: TriflowClient, athleteId: string, a: ParsedActivity): Promise<string> {
   const { data, error } = await client.from('activities').insert(toActivityRow(athleteId, a)).select('id').single();
   if (error || !data) throw new Error(`ingest: insert activity failed: ${error?.message}`);
   const activityId = data.id;
@@ -146,7 +146,7 @@ async function insertActivity(client: IronflowClient, athleteId: string, a: Pars
  * merged, keeping the richer record as primary and marking the other `is_duplicate_of` it.
  */
 export async function upsertParsedActivity(
-  client: IronflowClient,
+  client: TriflowClient,
   athleteId: string,
   a: ParsedActivity,
 ): Promise<{ activityId: string; outcome: UpsertOutcome }> {

@@ -12,7 +12,7 @@
 \set tables '{profiles,athlete_availability,athlete_anchors,athlete_model_current,athlete_zones,integrations,sync_log,activities,activity_sources,activity_laps,activity_streams,mean_max_curves,daily_metrics,races,training_plans,plan_weeks,workouts,plan_mutations,field_tests,coach_athlete_relationships,notifications}'
 
 -- Bridge the psql client variable into a session GUC the DO blocks below can read.
-select set_config('ironflow.tables', :'tables', false);
+select set_config('triflow.tables', :'tables', false);
 
 -- 0. Superuser sanity: RLS is bypassed for the owner, so both athletes' data is present.
 do $$
@@ -30,7 +30,7 @@ begin;
   do $$
   declare t text; c bigint; n int := 0;
   begin
-    foreach t in array current_setting('ironflow.tables')::text[] loop
+    foreach t in array current_setting('triflow.tables')::text[] loop
       execute format('select count(*) from %I', t) into c;
       if c <> 1 then
         raise exception 'RLS FAIL: athlete A sees % row(s) in "%", expected exactly 1 (its own)', c, t;
@@ -48,7 +48,7 @@ begin;
   do $$
   declare t text; c bigint; n int := 0;
   begin
-    foreach t in array current_setting('ironflow.tables')::text[] loop
+    foreach t in array current_setting('triflow.tables')::text[] loop
       execute format('select count(*) from %I', t) into c;
       if c <> 1 then
         raise exception 'RLS FAIL: athlete B sees % row(s) in "%", expected exactly 1 (its own)', c, t;
@@ -66,7 +66,7 @@ begin;
   do $$
   declare t text; c bigint;
   begin
-    foreach t in array current_setting('ironflow.tables')::text[] loop
+    foreach t in array current_setting('triflow.tables')::text[] loop
       execute format('select count(*) from %I', t) into c;
       if c <> 0 then
         raise exception 'RLS FAIL: an unauthenticated caller sees % row(s) in "%", expected 0', c, t;

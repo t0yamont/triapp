@@ -11,12 +11,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types.js';
 import { isBrowser, readPublicEnv, readServiceEnv } from './env.js';
 
-export type IronflowClient = SupabaseClient<Database>;
+export type TriflowClient = SupabaseClient<Database>;
 
 type EnvSource = Record<string, string | undefined>;
 
 /** Browser/anon client. Every query runs under the athlete's RLS policies. */
-export function createBrowserClient(env?: EnvSource): IronflowClient {
+export function createBrowserClient(env?: EnvSource): TriflowClient {
   const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = readPublicEnv(env);
   return createClient<Database>(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -27,7 +27,7 @@ export function createBrowserClient(env?: EnvSource): IronflowClient {
  * Service-role client for Edge Functions / server code. Bypasses RLS, so callers MUST scope
  * every query by athlete_id themselves. Never import this into client code.
  */
-export function createServiceClient(env?: EnvSource): IronflowClient {
+export function createServiceClient(env?: EnvSource): TriflowClient {
   if (isBrowser()) {
     throw new Error('createServiceClient must never be called in the browser (CLAUDE.md §4; ARCH §6)');
   }

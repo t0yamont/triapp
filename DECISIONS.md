@@ -290,8 +290,8 @@ deadline.
 ## D-DESIGN-VERDICT — Today/Analytics rebuilt against the Claude Design canvas ("Instrument
 Glass"), option 1c ("Verdict line")
 
-**Decision.** The Claude Design project `IronFlow — Instrument Glass` (canvas
-`IronFlow - Instrument Glass.dc.html`) explored three alternative Today layouts (1a "Session
+**Decision.** The Claude Design project `TriFlow — Instrument Glass` (canvas
+`TriFlow - Instrument Glass.dc.html`) explored three alternative Today layouts (1a "Session
 brief", 1b "Instrument console", 1c "Verdict line") plus a new Analytics layout (1d) and a
 foundations/components reference (1e), sharing one design system. The user picked **1c** for
 Today. `/today` and `/analytics` were rebuilt against it: a fused session+readiness hero with a

@@ -1,4 +1,4 @@
-# IronFlow
+# TriFlow
 
 An adaptive, multi-sport (triathlon / running / cycling) endurance training platform.
 
@@ -131,5 +131,5 @@ from React/Supabase/HTTP/the clock; every physiological constant is cited in
 estimate carries `{ value, confidence, provenance }` and confidence is never silently
 increased; and any deviation from the spec is logged in [`DECISIONS.md`](./DECISIONS.md).
 
-> IronFlow provides training guidance, not medical advice. Athletes should seek medical
+> TriFlow provides training guidance, not medical advice. Athletes should seek medical
 > clearance before beginning a training programme.

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "IronFlow base component library + design tokens (06-UX.md §2).",
+  "description": "TriFlow base component library + design tokens (06-UX.md §2).",
   "exports": {
     ".": "./src/index.ts"
   },

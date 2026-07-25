@@ -1,5 +1,5 @@
 -- =============================================================================
--- IronFlow — 0004 scheduled jobs  (OPTIONAL, real Supabase project only)
+-- TriFlow — 0004 scheduled jobs  (OPTIONAL, real Supabase project only)
 --
 -- The nightly recompute job (spec/04-DATA-MODEL.sql tail). Needs pg_cron + pg_net, which
 -- are Supabase-managed extensions, and the `app.edge_url` setting. This migration is
@@ -18,12 +18,12 @@ do $$
 begin
   if not exists (select 1 from pg_extension where extname = 'pg_cron')
      or not exists (select 1 from pg_extension where extname = 'pg_net') then
-    raise notice 'IronFlow: pg_cron/pg_net not enabled — skipping nightly-recompute schedule. See migration header.';
+    raise notice 'TriFlow: pg_cron/pg_net not enabled — skipping nightly-recompute schedule. See migration header.';
     return;
   end if;
 
   if current_setting('app.edge_url', true) is null then
-    raise notice 'IronFlow: app.edge_url not set — skipping nightly-recompute schedule. See migration header.';
+    raise notice 'TriFlow: app.edge_url not set — skipping nightly-recompute schedule. See migration header.';
     return;
   end if;
 
@@ -33,5 +33,5 @@ begin
     '0 * * * *',
     $job$ select net.http_post(url := current_setting('app.edge_url') || '/recompute') $job$
   );
-  raise notice 'IronFlow: nightly-recompute scheduled.';
+  raise notice 'TriFlow: nightly-recompute scheduled.';
 end $$;

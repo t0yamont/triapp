@@ -3,7 +3,7 @@
  *
  * The short-term scaling exponent α1 of detrended fluctuation analysis of RR intervals
  * declines monotonically with exercise intensity, crossing 0.75 at LT1/VT1 and 0.50 at
- * LT2/VT2 (Rogers et al. 2021a/b). This is IronFlow's differentiating capability: real
+ * LT2/VT2 (Rogers et al. 2021a/b). This is TriFlow's differentiating capability: real
  * thresholds without a lab — and an honest confidence attached.
  *
  * HONESTY REQUIREMENT (§6.1): a single-session DFA-a1 threshold has individual limits of

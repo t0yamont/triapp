@@ -1,8 +1,8 @@
 {
-  "name": "ironflow",
+  "name": "triflow",
   "version": "0.0.0",
   "private": true,
-  "description": "IronFlow — adaptive multi-sport endurance training platform. The physiology engine is the product.",
+  "description": "TriFlow — adaptive multi-sport endurance training platform. The physiology engine is the product.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20"

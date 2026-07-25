@@ -1,11 +1,11 @@
-# PRODUCT.md — IronFlow (web app)
+# PRODUCT.md — TriFlow (web app)
 
-Product truth for the IronFlow web surface. Owns *what is true*, not how it looks
+Product truth for the TriFlow web surface. Owns *what is true*, not how it looks
 (that is DESIGN.md). See `/spec` for the full specification.
 
 ## Mechanism (one sentence)
 
-IronFlow is an adaptive multi-sport endurance training platform whose **pure physiology
+TriFlow is an adaptive multi-sport endurance training platform whose **pure physiology
 engine is the product**: it detects an athlete's thresholds, builds a periodised plan under
 hard safety guardrails, and adapts it daily from readiness signals — every number it shows
 carries a confidence and a provenance, and every plan change is audited with a reason the

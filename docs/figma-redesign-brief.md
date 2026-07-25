@@ -1,6 +1,6 @@
-# IronFlow — Figma Redesign Brief
+# TriFlow — Figma Redesign Brief
 
-A complete design brief to rebuild the IronFlow interface in Figma. **Keep the idea** — a
+A complete design brief to rebuild the TriFlow interface in Figma. **Keep the idea** — a
 scientific-instrument training console rendered in dark *glassmorphism* — while you re-lay-out
 and refine it. Produce **two frame sets for every screen: Desktop (web) and Mobile.**
 
@@ -23,9 +23,9 @@ the data each screen shows, the dark+glass identity, and the accent discipline.
 
 ---
 
-## 1. What IronFlow is (product context)
+## 1. What TriFlow is (product context)
 
-**IronFlow is an adaptive, multi-sport endurance training platform (triathlon / running /
+**TriFlow is an adaptive, multi-sport endurance training platform (triathlon / running /
 cycling).** Its core is a physiology engine that:
 
 - detects an athlete's physiological **thresholds** from device data (HR, power, pace, HRV),
@@ -295,7 +295,7 @@ Tone by outcome: eased/adjusted = `warn`, repaired-ok = `ok`, breach = `risk`.
 
 ### 4.11 Navigation
 - **Desktop rail** (248px, `glass-raised`, full height, floating with 12px margin): brandmark
-  (aurora-gradient tile + "IRONFLOW" tracked caps) · nav items (line icon + label; **active** = faint
+  (aurora-gradient tile + "TRIFLOW" tracked caps) · nav items (line icon + label; **active** = faint
   glass pill + `accent` text + a 3px accent glow bar on the left) · footer athlete chip.
 - **Mobile bottom tab bar** (`glass-raised`, floating, fixed bottom): the same items as icon +
   tiny label; active in `accent-bright`.
@@ -340,7 +340,7 @@ Nav order in the app: Today · Calendar · Activities · Analytics · Races · S
 
 - **Purpose:** capture identity basics and **health-data consent + medical disclaimer** (required).
 - **Shows:** name/DOB/sex/units; consent checkboxes for health data; a clear, non-scary medical
-  disclaimer ("IronFlow provides training guidance, not medical advice. Seek medical clearance
+  disclaimer ("TriFlow provides training guidance, not medical advice. Seek medical clearance
   before starting a programme."); primary "Continue".
 - **Web:** one centred glass card, a stepper/progress hint (About → Availability → Plan). Fields in a
   tidy 1–2 col auto-layout.
@@ -514,7 +514,7 @@ marks, no gamification.
 ## 10. Suggested Figma file structure
 
 ```
-IronFlow — Instrument Glass
+TriFlow — Instrument Glass
 ├── 0 · Cover & this brief
 ├── 1 · Foundations        (colour, type, radii, effects as variables/styles; glass + aurora demo)
 ├── 2 · Components         (Panel, Button, Input, Chips, ConfidenceDot, Ring, Gauge, Bars,

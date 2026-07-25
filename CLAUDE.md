@@ -1,10 +1,10 @@
-# CLAUDE.md — IronFlow
+# CLAUDE.md — TriFlow
 
 Copy this file to the repository root at project init.
 
 ## What this repo is
 
-IronFlow: a multi-sport endurance training platform (triathlon, running, cycling).
+TriFlow: a multi-sport endurance training platform (triathlon, running, cycling).
 Turborepo monorepo, Next.js web + Expo mobile, Supabase backend.
 
 The specification bundle lives in `/spec`. It is the source of truth. Read

@@ -16,7 +16,7 @@
 // anchoring". 03-ALGORITHM.md §2.2.
 export const HRMAX_HUNT = { intercept: 211, ageCoef: 0.64 } as const;
 // Alternative — Tanaka et al. 2001 (208 − 0.7 × age). Retained for comparison display
-// ONLY; never used as the working value. The original IronFlow draft mislabelled the
+// ONLY; never used as the working value. The original TriFlow draft mislabelled the
 // HUNT formula as "Tanaka"; that was incorrect (03-ALGORITHM.md §2.2).
 export const HRMAX_TANAKA = { intercept: 208, ageCoef: 0.7 } as const;
 

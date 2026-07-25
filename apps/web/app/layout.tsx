@@ -5,7 +5,7 @@ import { AuroraBackground } from '../components/AuroraBackground';
 import { currentClimate } from '../lib/today-demo';
 
 export const metadata: Metadata = {
-  title: 'IronFlow',
+  title: 'TriFlow',
   description: 'Adaptive endurance training, anchored to your measured physiological thresholds.',
 };
 

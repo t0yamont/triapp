@@ -1,6 +1,6 @@
 /**
  * ingest/parse/fit.ts — Garmin FIT binary decoder (03-ALGORITHM §6.1 needs RR; CLAUDE §7:
- * FIT parsing is server-side). Focused on the messages IronFlow uses: file_id, activity,
+ * FIT parsing is server-side). Focused on the messages TriFlow uses: file_id, activity,
  * session, lap, record, and hrv (RR intervals).
  *
  * FIT structure: a 12/14-byte header, a stream of definition + data messages, and a trailing

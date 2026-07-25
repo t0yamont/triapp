@@ -1,6 +1,6 @@
 'use client';
 
-import { generatePlan, type GeneratePlanInput } from '@ironflow/core/physio';
+import { assessPlanWindow, assessStartReadiness, generatePlan, nextFieldTest, type BaselineAbility, type GeneratePlanInput } from '@ironflow/core/physio';
 import { insertGeneratedPlan, type GeneratedPlanMeta, type Json } from '@ironflow/api-client';
 import { Button, Card } from '@ironflow/ui';
 import { useRouter } from 'next/navigation';
@@ -22,11 +22,19 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function PlanGeneration({ input }: { input: GeneratePlanInput }) {
+export function PlanGeneration({ input, baseline }: { input: GeneratePlanInput; baseline?: BaselineAbility }) {
   const router = useRouter();
   const supabase = useSupabase();
   const plan = useMemo(() => generatePlan(input), [input]);
   const weeks = useMemo(() => plan.weeks.map((w) => ({ weekNumber: w.weekNumber, phase: w.phase, isRecoveryWeek: w.isRecoveryWeek })), [plan]);
+  // Same verdicts the intake form showed — recomputed here so the plan and the form never
+  // disagree, and so a caller that skips the form (e.g. the sample-data fallback) still gets them.
+  const window = useMemo(() => assessPlanWindow(input.eventType, input.totalWeeks), [input.eventType, input.totalWeeks]);
+  const readiness = useMemo(() => (baseline ? assessStartReadiness(input.eventType, baseline) : null), [input.eventType, baseline]);
+  const firstTest = useMemo(
+    () => nextFieldTest({ confidence: input.confidence, weeksSinceLastTest: 99, primarySport: 'run' }),
+    [input.confidence],
+  );
 
   const [step, setStep] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -67,7 +75,10 @@ export function PlanGeneration({ input }: { input: GeneratePlanInput }) {
     const meta: GeneratedPlanMeta = {
       name: 'Your training plan',
       modelSnapshot: { confidence: input.confidence, trainingAgeYears: input.trainingAgeYears } as unknown as Json,
-      availabilitySnapshot: input.availability as unknown as Json,
+      // Baseline ability is a one-time plan-generation input, not a durable profile fact — it
+      // rides along in this snapshot rather than earning its own schema columns (nothing else
+      // in the app needs to query it independently).
+      availabilitySnapshot: { ...input.availability, baselineAbility: baseline ?? null } as unknown as Json,
       distributionPolicy: { source: 'engine §4.2 per phase' } as unknown as Json,
       engineVersion: ENGINE_VERSION,
       course: input.course,
@@ -129,7 +140,9 @@ export function PlanGeneration({ input }: { input: GeneratePlanInput }) {
             <span className="h-1.5 w-1.5 rounded-full bg-ok" aria-hidden /> Plan ready
           </div>
           <h1 className="text-display text-text">Your {plan.summary.totalWeeks}-week plan is built</h1>
-          <p className="text-body text-muted">A complete, guardrail-valid periodisation to race day — every week has a purpose.</p>
+          <p className="text-body text-muted">
+            {window.adequacy === 'recommended' ? 'A complete, guardrail-valid periodisation to race day — every week has a purpose.' : window.reasonText}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -150,16 +163,25 @@ export function PlanGeneration({ input }: { input: GeneratePlanInput }) {
         <ul className="flex flex-col gap-2 text-body">
           <li className="flex gap-2.5">
             <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" aria-hidden />
-            <span className="text-muted"><span className="text-text">What we know:</span> your thresholds and the days you can train.</span>
+            <span className="text-muted">
+              <span className="text-text">What we know:</span> what you told us you can currently do, and the days you can train.
+            </span>
           </li>
           <li className="flex gap-2.5">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-warn" aria-hidden />
-            <span className="text-muted"><span className="text-text">What we don't yet:</span> your fatigue resistance on long days — we'll learn it as you ride.</span>
+            <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${readiness?.ready === false ? 'bg-warn' : 'bg-ok'}`} aria-hidden />
+            <span className="text-muted">
+              <span className="text-text">Starting point:</span>{' '}
+              {readiness ? readiness.reasonText : "your measured thresholds — we'll learn them as you train and test."}
+            </span>
           </li>
-          <li className="flex gap-2.5">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
-            <span className="text-muted"><span className="text-text">First test:</span> a threshold test in ~2 weeks to confirm your zones.</span>
-          </li>
+          {firstTest ? (
+            <li className="flex gap-2.5">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden />
+              <span className="text-muted">
+                <span className="text-text">First test:</span> {firstTest.reasonText}
+              </span>
+            </li>
+          ) : null}
         </ul>
       </Card>
 

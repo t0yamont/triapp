@@ -138,6 +138,8 @@ export const CP_FIT_DURATION_RANGE_BIKE_S = [120, 900] as const;
 export const CP_FIT_DURATION_RANGE_RUN_S = [180, 1200] as const;
 export const CP_FIT_MIN_POINTS = 3;
 export const CP_FIT_MIN_R2 = 0.95;
+// A mean-max point counts as genuinely maximal within 95% of the athlete's all-time best.
+export const CP_FIT_MAXIMAL_FRACTION = 0.95;
 export const W_PRIME_BOUNDS_J = [5000, 35000] as const;
 export const W_PRIME_INTERVAL_DEPLETION_TARGET = [0.6, 0.8] as const;
 

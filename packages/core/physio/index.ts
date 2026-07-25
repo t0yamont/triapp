@@ -26,6 +26,7 @@ export * from './load/tss.js';
 export * from './load/trimp.js';
 export * from './load/srpe.js';
 export * from './load/fitness.js';
+export * from './load/meanMax.js';
 
 // Distribution (§3.4, §4)
 export * from './distribution/policy.js';

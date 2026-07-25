@@ -65,6 +65,40 @@ export const STRAIN_ROLLING_WEEKS = 12;
 // G9 post-race: recovery days before any S3 = race hours rounded up, never fewer than this.
 export const POST_RACE_MIN_RECOVERY_DAYS = 2;
 
+// ── Plan window & entry requirements (onboarding) ────────────────────────────
+// ⚠️ COACHING CONVENTION, NOT PEER-REVIEWED PHYSIOLOGY — pending sign-off, see
+// docs/algorithm-review-2026-07.md §2.1/§2.2 and §5. These are the only numbers in this file
+// without a citation to REFERENCES.md, and they are deliberately marked so.
+//
+// `recommended` = a full run-up (a standard 70.3 build is ~20 weeks: 8 base / 6 build / 6 peak).
+// `minimum` = below this the engine advises a later race rather than compressing further.
+export const PLAN_WEEKS_BY_EVENT = {
+  ironman: { recommended: 24, minimum: 16 },
+  '70.3': { recommended: 20, minimum: 12 },
+  marathon: { recommended: 16, minimum: 12 },
+  olympic_tri: { recommended: 16, minimum: 10 },
+  half_marathon: { recommended: 12, minimum: 8 },
+  '10k': { recommended: 12, minimum: 8 },
+  sprint_tri: { recommended: 8, minimum: 6 },
+  '5k': { recommended: 8, minimum: 6 },
+} as const;
+
+// What an athlete should be able to cover continuously before starting the event's plan proper.
+// Same caveat: convention drawn from published beginner plans, not physiology.
+export const EVENT_ENTRY_REQUIREMENTS: Record<
+  keyof typeof TAPER_TABLE,
+  { swimM?: number; rideMin?: number; runMin?: number }
+> = {
+  ironman: { swimM: 2000, rideMin: 150, runMin: 75 },
+  '70.3': { swimM: 1500, rideMin: 120, runMin: 60 },
+  olympic_tri: { swimM: 800, rideMin: 60, runMin: 30 },
+  sprint_tri: { swimM: 400, rideMin: 20, runMin: 10 },
+  marathon: { runMin: 75 },
+  half_marathon: { runMin: 50 },
+  '10k': { runMin: 30 },
+  '5k': { runMin: 20 },
+};
+
 // ── Race calendar (§9) ───────────────────────────────────────────────────────
 // Two A races closer than this can't both be peaked for; the second is planned as a B race.
 export const A_RACE_MIN_SEPARATION_WEEKS = 12;

@@ -43,6 +43,7 @@ export * from './plan/generate.js';
 export * from './plan/reschedule.js';
 export * from './plan/actions.js';
 export * from './plan/races.js';
+export * from './plan/onboarding.js';
 export * from './plan/fieldtest.js';
 export * from './plan/replan.js';
 

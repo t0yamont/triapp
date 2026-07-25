@@ -8,7 +8,7 @@
  * be wasteful — the stored value is the engine's answer *at the time*, kept for display.
  */
 
-import type { DailyWellness, Readiness } from '@ironflow/core/physio';
+import type { AdaptationAction, DailyWellness, PlanMutation, Readiness, SZone } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
 import type { Json } from '../database.types.js';
 import type { Tables } from '../types.js';
@@ -95,4 +95,77 @@ export async function upsertDailyCheckIn(
     .single();
   if (error) throw error;
   return data;
+}
+
+// ── Applying today's readiness adaptation (§10.2) ────────────────────────────
+
+/** S1 < S2 < S3 — used only to enforce that adaptation never raises intensity. */
+const ZONE_RANK: Record<SZone, number> = { S1: 1, S2: 2, S3: 3 };
+
+/**
+ * The zone today's session should end up in, or null for "leave it alone".
+ *
+ * §10.2 is **downgrade-only** (I12/I14): readiness recovering does not undo an easier day, so
+ * an action that would raise the zone is treated as no change. Pure, so it is unit-tested.
+ */
+export function adaptedZone(action: AdaptationAction, current: SZone): SZone | null {
+  const target: SZone | null =
+    action === 'downgrade_s3_to_s2' ? 'S2' : action === 'none' ? null : 'S1';
+  if (target === null) return null;
+  return ZONE_RANK[target] < ZONE_RANK[current] ? target : null;
+}
+
+/**
+ * Write today's readiness-driven downgrade: the session's new zone plus the audit row
+ * (hard rule #10). `mutation` comes from `adaptToday`, so the stored reason is the engine's
+ * own, with `actor: 'engine'` — this is not something the athlete asked for.
+ *
+ * As in `persistWorkoutMoves`, a failed audit insert rolls the zone change back rather than
+ * leaving an unaudited plan change.
+ *
+ * ponytail: applies the *day* part of the adaptation only. `weekLoadDeltaPct` and
+ * `suppressS3Days` (the week-level half of `convert_week_to_recovery` and the 2-day rule) are
+ * not applied to future workouts yet — that belongs with `weeklyReplan`, and the audit row
+ * records the full reason in the meantime so nothing is lost.
+ */
+export async function persistSessionAdaptation(
+  client: TriflowClient,
+  args: {
+    athleteId: string;
+    planId: string;
+    workoutId: string;
+    fromZone: SZone;
+    toZone: SZone;
+    mutation: PlanMutation;
+  },
+): Promise<void> {
+  const { athleteId, planId, workoutId, fromZone, toZone, mutation } = args;
+
+  const setZone = async (zone: SZone): Promise<void> => {
+    const { error } = await client
+      .from('workouts')
+      .update({ goal_zone: zone, updated_at: new Date().toISOString() })
+      .eq('id', workoutId)
+      .eq('athlete_id', athleteId);
+    if (error) throw error;
+  };
+
+  await setZone(toZone);
+
+  const { error: auditError } = await client.from('plan_mutations').insert({
+    athlete_id: athleteId,
+    plan_id: planId,
+    actor: mutation.actor,
+    reason_code: mutation.reasonCode,
+    reason_text: mutation.reasonText,
+    ...(mutation.ruleId ? { rule_id: mutation.ruleId } : {}),
+    affected_workout_ids: [workoutId],
+    before: { goal_zone: fromZone } as Json,
+    after: { goal_zone: toZone } as Json,
+  });
+
+  if (auditError) {
+    await setZone(fromZone).catch(() => undefined); // the original failure is the one to report
+    throw auditError;
+  }
 }

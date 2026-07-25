@@ -1,7 +1,7 @@
 'use client';
 
 import { buildTodayView } from '../../../lib/today-demo';
-import { useLiveWeek } from '../../../lib/live-plan';
+import { todayISO, useLiveWeek } from '../../../lib/live-plan';
 import { useLiveReadiness } from '../../../lib/live-readiness';
 import { CheckInCard } from '../../../components/today/CheckInCard';
 import { VerdictHero } from '../../../components/today/VerdictHero';
@@ -17,10 +17,15 @@ export default function TodayPage() {
   // once there is enough history to score — else the sample athlete.
   const view = buildTodayView();
   const { live } = useLiveWeek();
-  const { live: liveReadiness, coverage, saving, error, submit } = useLiveReadiness();
+  const { live: liveReadiness, coverage, saving, error, adaptation, submit } = useLiveReadiness();
   const week = live?.strip ?? view.week;
   const comingUp = live?.comingUp ?? view.comingUp;
   const readiness = liveReadiness?.readiness ?? view.readiness;
+
+  // Today's persisted session, so a check-in can actually adapt it (§10.2).
+  const todayRow = live?.rows.find((w) => w.scheduled_date === todayISO()) ?? null;
+  const todaySession =
+    live && todayRow ? { workoutId: todayRow.id, planId: live.planId, sZone: todayRow.goal_zone } : undefined;
 
   const provenance = live
     ? liveReadiness
@@ -39,7 +44,7 @@ export default function TodayPage() {
 
       <VerdictHero
         session={view.session}
-        adaptation={view.adaptation}
+        adaptation={adaptation ?? view.adaptation}
         effectiveZone={view.effectiveZone}
         readiness={readiness}
         // The narrative explains the sample adaptation, so it only holds while readiness is
@@ -55,7 +60,7 @@ export default function TodayPage() {
         alreadyLogged={liveReadiness?.today != null}
         saving={saving}
         error={error}
-        onSubmit={submit}
+        onSubmit={(checkIn) => submit(checkIn, todaySession)}
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr_1fr]">

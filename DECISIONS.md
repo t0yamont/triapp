@@ -562,3 +562,40 @@ redisplay it would be wasteful.
 **Not verified end-to-end.** The engine and mappers are unit-tested and the whole path
 typechecks, but no signed-in athlete has exercised the `daily_metrics` write against a live
 database — same caveat as `D-CALENDAR-PERSIST`.
+
+---
+
+## D-READINESS-RESPONSE — the plan now responds to readiness (§10.2)
+
+**Status:** implemented (day-level). **Spec:** §10.2; invariants I12/I13/I14.
+
+**Closing the loop.** `D-WELLNESS-NORM` built the input half — check-in → readiness. This is
+the output half: readiness → today's session actually changes, with an audit row.
+
+**Scoring past days needs no-lookahead.** §10.2's rules count *consecutive* below-band days,
+so a readiness *series* is required, not just today's score. `buildReadinessSeries` scores each
+day using only data available as of that day — `buildReadinessInputs` already ignores rows
+dated later. Without that, a check-in logged today would retroactively change what yesterday's
+readiness "was", and "below band for 2 consecutive days" would quietly mean something
+different on every run.
+
+**Applied on check-in, not on render.** The adaptation is written when the athlete submits
+their check-in — a deliberate action, at exactly the moment readiness changed. Doing it during
+render would let any page load, refresh or re-mount silently rewrite the plan, and would race
+with itself. This also makes the write naturally once-per-check-in rather than needing
+idempotency guards against a render loop.
+
+**Downgrade-only is enforced at the write boundary too.** `adaptedZone` returns a target only
+when it is strictly *easier* than what's scheduled, so recovering readiness never restores a
+hard session and no path can raise intensity (I12/I14). Property-tested across every
+action × zone pair, not just the expected cases.
+
+**Known ceiling — the day part only.** `weekLoadDeltaPct` and `suppressS3Days` (the week-level
+half of the 2-day rule and of `convert_week_to_recovery`) are **not** applied to future
+workouts. That belongs with `weeklyReplan`, and doing it half-way across a week is worse than
+not yet doing it. Marked `ponytail:`; the audit row records the engine's full reason meanwhile,
+so nothing is lost and the gap is visible in the data rather than only in code comments.
+
+**Audit.** `actor: 'engine'` — this is the system responding, not something the athlete asked
+for, and the reason code is the engine's own. A failed audit insert rolls the zone change back,
+as in `D-CALENDAR-PERSIST`.

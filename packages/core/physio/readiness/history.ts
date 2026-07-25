@@ -25,8 +25,9 @@ import {
   WELLNESS_BASELINE_DAYS,
   WELLNESS_ROLLING_DAYS,
 } from '../constants.js';
-import { daysBetweenISO } from '../plan/generate.js';
-import type { MetricInput, ReadinessInputs } from './score.js';
+import { addDaysISO, daysBetweenISO } from '../plan/generate.js';
+import type { DailyReadiness } from './response.js';
+import { readinessScore, type MetricInput, type ReadinessInputs } from './score.js';
 
 /**
  * One day's observations. Every field is optional: athletes skip days, and a wearable may
@@ -132,6 +133,37 @@ export function buildReadinessInputs(
     ...(wellness ? { wellness } : {}),
     ...(completionRate !== undefined ? { completionRate } : {}),
   };
+}
+
+/**
+ * Readiness for each of the trailing `days` days, oldest first — the shape `adaptToday`
+ * (§10.2) needs, since its rules count *consecutive* below-band days and elevated-RHR days.
+ *
+ * Each day is scored using only the data available **as of that day**: `buildReadinessInputs`
+ * ignores rows dated after the day it is asked about, so a later check-in can never
+ * retroactively change what yesterday's readiness was. Without that, a rule like "below band
+ * for 2 consecutive days" would silently mean something different every time it ran.
+ */
+export function buildReadinessSeries(
+  history: readonly DailyWellness[],
+  today: string,
+  days: number,
+): DailyReadiness[] {
+  const series: DailyReadiness[] = [];
+  for (let offset = days - 1; offset >= 0; offset--) {
+    const date = addDaysISO(today, -offset);
+    const inputs = buildReadinessInputs(history, date);
+    const { band, components } = readinessScore(inputs);
+    const hrvZ = components.find((c) => c.key === 'hrv')?.z;
+    // Positive = above baseline, which for resting HR is the bad direction (§10.2's >7 bpm rule).
+    const restingHrDeltaBpm = inputs.restingHr ? inputs.restingHr.rolling - inputs.restingHr.baseline : undefined;
+    series.push({
+      band,
+      ...(hrvZ !== undefined ? { hrvZ } : {}),
+      ...(restingHrDeltaBpm !== undefined ? { restingHrDeltaBpm } : {}),
+    });
+  }
+  return series;
 }
 
 /**

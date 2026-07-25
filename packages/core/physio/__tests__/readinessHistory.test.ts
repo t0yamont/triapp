@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { READINESS_MIN_BASELINE_SAMPLES, SWC_MULTIPLIER } from '../constants.js';
 import { addDaysISO } from '../plan/generate.js';
-import { buildReadinessInputs, readinessCoverage, wellnessMean, type DailyWellness } from '../readiness/history.js';
+import {
+  buildReadinessInputs,
+  buildReadinessSeries,
+  readinessCoverage,
+  wellnessMean,
+  type DailyWellness,
+} from '../readiness/history.js';
+import { adaptToday } from '../readiness/response.js';
 import { readinessScore } from '../readiness/score.js';
 
 const TODAY = '2026-07-25';
@@ -127,6 +134,54 @@ describe('feeding readinessScore — the contract that matters', () => {
   it('puts the SWC band exactly where the constant says', () => {
     const inputs = { hrv: { rolling: 50 + SWC_MULTIPLIER * 2, baseline: 50, sd: 2 } };
     expect(readinessScore(inputs).band).toBe('within'); // z === SWC_MULTIPLIER is not yet "above"
+  });
+});
+
+describe('buildReadinessSeries', () => {
+  it('returns one entry per day, oldest first', () => {
+    const history = series(60, (i) => ({ hrvRmssd: 60 + (i % 3) }));
+    expect(buildReadinessSeries(history, TODAY, 4)).toHaveLength(4);
+  });
+
+  it('scores each day only from data available then — no lookahead', () => {
+    // Nothing logged until today. Yesterday must therefore be 'unknown', not scored using
+    // today's row, or "2 consecutive below days" would mean something different every run.
+    const history: DailyWellness[] = [{ date: TODAY, hrvRmssd: 60 }];
+    const built = buildReadinessSeries(history, TODAY, 2);
+    expect(built[0]!.band).toBe('unknown');
+  });
+
+  it('detects a sustained dip as consecutive below-band days', () => {
+    const history = series(60, (i) => ({ hrvRmssd: i < 3 ? 35 : 60 + (i % 3) }));
+    const built = buildReadinessSeries(history, TODAY, 3);
+    expect(built.every((d) => d.band === 'below')).toBe(true);
+  });
+
+  it('reports resting HR delta positive when RHR is elevated above baseline', () => {
+    const history = series(60, (i) => ({ restingHr: i < 3 ? 58 : 48 + (i % 2) }));
+    const today = buildReadinessSeries(history, TODAY, 1)[0]!;
+    expect(today.restingHrDeltaBpm).toBeGreaterThan(0);
+  });
+
+  it('feeds adaptToday: a 2-day dip eases an S3 session', () => {
+    const history = series(60, (i) => ({ hrvRmssd: i < 2 ? 35 : 60 + (i % 3) }));
+    const built = buildReadinessSeries(history, TODAY, 4);
+    const result = adaptToday(built, 'S3');
+    expect(result.action).not.toBe('none');
+    expect(result.mutation).toBeDefined();
+    expect(result.weekLoadDeltaPct).toBeLessThanOrEqual(0); // I12: never an increase
+  });
+
+  it('feeds adaptToday: steady readiness leaves the session alone', () => {
+    const history = series(60, (i) => ({ hrvRmssd: 60 + (i % 3) }));
+    const result = adaptToday(buildReadinessSeries(history, TODAY, 4), 'S3');
+    expect(result.action).toBe('none');
+    expect(result.mutation).toBeUndefined();
+  });
+
+  it('omits hrvZ and restingHrDeltaBpm when those metrics have no baseline', () => {
+    const built = buildReadinessSeries([], TODAY, 1)[0]!;
+    expect(built).toEqual({ band: 'unknown' });
   });
 });
 

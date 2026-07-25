@@ -10,16 +10,28 @@
  * and `live-races.ts` follow.
  */
 
-import { getDailyMetricsInRange, toDailyWellness, upsertDailyCheckIn, type DailyCheckIn } from '@ironflow/api-client';
+import {
+  adaptedZone,
+  getDailyMetricsInRange,
+  persistSessionAdaptation,
+  toDailyWellness,
+  upsertDailyCheckIn,
+  type DailyCheckIn,
+} from '@ironflow/api-client';
 import {
   HRV_BASELINE_DAYS,
+  READINESS_BELOW_DAYS_RECOVERY,
+  adaptToday,
   addDaysISO,
   buildReadinessInputs,
+  buildReadinessSeries,
   readinessCoverage,
   readinessScore,
+  type AdaptationResult,
   type DailyWellness,
   type Readiness,
   type ReadinessCoverage,
+  type SZone,
 } from '@ironflow/core/physio';
 import { useCallback, useEffect, useState } from 'react';
 import { todayISO } from './live-plan';
@@ -32,6 +44,13 @@ export interface LiveReadiness {
   today: DailyWellness | null;
 }
 
+/** Today's scheduled session, when there is a persisted one to adapt. */
+export interface TodaySession {
+  workoutId: string;
+  planId: string;
+  sZone: SZone;
+}
+
 export interface UseLiveReadiness {
   live: LiveReadiness | null;
   /** Null until we know — distinguishes "loading" from "signed out". */
@@ -39,9 +58,17 @@ export interface UseLiveReadiness {
   loading: boolean;
   saving: boolean;
   error: string | null;
-  /** Save this morning's check-in and rescore. No-op when signed out. */
-  submit: (checkIn: DailyCheckIn) => Promise<void>;
+  /** The engine's response to today's readiness, once a check-in has produced one. */
+  adaptation: AdaptationResult | null;
+  /**
+   * Save this morning's check-in, rescore, and apply §10.2's response to today's session.
+   * No-op when signed out. Pass today's session to let the adaptation actually land.
+   */
+  submit: (checkIn: DailyCheckIn, todaySession?: TodaySession) => Promise<void>;
 }
+
+/** Enough trailing days to satisfy §10.2's longest rule (4+ consecutive below-band days). */
+const SERIES_DAYS = READINESS_BELOW_DAYS_RECOVERY + 1;
 
 export function useLiveReadiness(): UseLiveReadiness {
   const supabase = useSupabase();
@@ -50,6 +77,7 @@ export function useLiveReadiness(): UseLiveReadiness {
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [adaptation, setAdaptation] = useState<AdaptationResult | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     if (!supabase) return;
@@ -100,7 +128,7 @@ export function useLiveReadiness(): UseLiveReadiness {
   }, [supabase, load]);
 
   const submit = useCallback(
-    async (checkIn: DailyCheckIn): Promise<void> => {
+    async (checkIn: DailyCheckIn, todaySession?: TodaySession): Promise<void> => {
       if (!supabase) return;
       setSaving(true);
       setError(null);
@@ -121,6 +149,26 @@ export function useLiveReadiness(): UseLiveReadiness {
         const scored = readinessCoverage(history, today).available.length > 0 ? readinessScore(inputs) : undefined;
 
         await upsertDailyCheckIn(supabase, athleteId, today, checkIn, scored);
+
+        // §10.2: the plan responds to readiness. Done here, on a deliberate athlete action,
+        // rather than on render — a page load must never quietly rewrite the plan, and this
+        // is exactly the moment readiness changed.
+        if (scored && todaySession) {
+          const response = adaptToday(buildReadinessSeries(history, today, SERIES_DAYS), todaySession.sZone);
+          setAdaptation(response);
+          const toZone = adaptedZone(response.action, todaySession.sZone);
+          if (toZone && response.mutation) {
+            await persistSessionAdaptation(supabase, {
+              athleteId,
+              planId: todaySession.planId,
+              workoutId: todaySession.workoutId,
+              fromZone: todaySession.sZone,
+              toZone,
+              mutation: response.mutation,
+            });
+          }
+        }
+
         await load();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not save your check-in.');
@@ -131,5 +179,5 @@ export function useLiveReadiness(): UseLiveReadiness {
     [supabase, load],
   );
 
-  return { live, coverage, loading, saving, error, submit };
+  return { live, coverage, loading, saving, error, adaptation, submit };
 }

@@ -51,7 +51,14 @@ export function constructMicrocycle(input: MicroInput): GuardrailWeek {
   const restDays = new Set([...avail].sort((a, b) => a.minutes - b.minutes).slice(0, restCount).map((x) => x.day));
   const sessionDays = avail.filter((x) => !restDays.has(x.day));
 
-  const s3Day = allowS3 ? sessionDays.find((x) => x.day !== longDay)?.day : undefined;
+  // Place the quality session away from the long day, and away from swim days: the S3 slot
+  // carries a much tighter duration cap, so putting it on a swim day makes that sport's
+  // longest session swing between weeks purely because the slot moved (a G2 false positive),
+  // and the §7.2 library renders VO₂ work for bike/run, not the technique swim.
+  const nonLongDays = sessionDays.filter((x) => x.day !== longDay);
+  const s3Day = allowS3
+    ? (nonLongDays.find((x) => !availability.swimDays?.includes(x.day)) ?? nonLongDays[0])?.day
+    : undefined;
 
   const sessions: WeekSession[] = [];
   let usedMin = 0;

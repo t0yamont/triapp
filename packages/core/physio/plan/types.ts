@@ -54,7 +54,13 @@ export interface GuardrailWeek {
   sessions: WeekSession[];
   /** Preceding week's total load — required to check the recovery-week range (G4). */
   priorWeekLoad?: number;
-  /** Preceding week's longest session per sport, in minutes — required for G2. */
+  /**
+   * The athlete's *recent peak* longest session per sport, in minutes — required for G2.
+   * Peak, not last week: a recovery week mandates a volume cut (G4), so comparing against the
+   * immediately preceding week would flag every normal bounce-back and make G2 and G4
+   * unsatisfiable together. The injury vector G2 guards is a **new** longest session, not a
+   * return to a duration the athlete has already handled.
+   */
   priorLongestBySport?: Partial<Record<PlanSport, number>>;
   /** The athlete's 12-week rolling mean strain — required for G8. */
   strainRollingMean?: number;

@@ -342,3 +342,32 @@ specify is implemented as cited constants: 8–14 exposures, finishing 5–10 da
 under-performance.
 
 **Open question for the spec owner:** what margin (°C wet-bulb) should trigger a block?
+
+---
+
+## D-G2-PEAK — G2 compares against the recent *peak* long session, not last week
+
+**Decision.** `GuardrailWeek.priorLongestBySport` carries the athlete's **recent peak** longest
+session per sport (rolling max over the last ~4 weeks), not the immediately preceding week's.
+
+**Reason.** Read literally ("≤ +10% or +15 min per sport **per week**"), G2 and G4 cannot both be
+satisfied: G4 *mandates* that a recovery week cut volume to 55–70%, which guarantees the next
+loading week grows the long session by far more than 10% simply by returning to normal. The
+Phase-8 season simulation surfaced this immediately — bike 185 → 221 min after a recovery week,
+against a duration the athlete had already completed at 240 min three weeks running. Two
+mandatory guardrails that contradict each other means the reading is wrong: the injury vector G2
+names ("the classic long-run injury vector") is a **new** longest session, not a return to one
+already handled. Peak-based comparison keeps G2 meaningful — it still catches genuine new peaks —
+without firing on every planned recovery bounce-back.
+
+## D-S3-DAY-PLACEMENT — the quality session is kept off swim days
+
+**Decision.** `constructMicrocycle` places the week's S3 session on a non-long, **non-swim** day
+where one exists (falling back to any non-long day).
+
+**Reason.** Also found by the season simulation: the S3 slot carries a much tighter duration cap
+(40 min) than an aerobic slot (90 min), so when the quality session landed on the swim day, that
+sport's longest session swung between weeks purely because the slot moved or disappeared — a swim
+*growing* 36 → 69 min inside a recovery week, which is both a G2 false positive and genuinely
+wrong prescription. It is also better physiology: §7.2's library renders VO₂ work for bike and
+run, while the swim in these plans is technique-focused.

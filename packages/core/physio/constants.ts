@@ -65,6 +65,11 @@ export const STRAIN_ROLLING_WEEKS = 12;
 // G9 post-race: recovery days before any S3 = race hours rounded up, never fewer than this.
 export const POST_RACE_MIN_RECOVERY_DAYS = 2;
 
+// ── Race calendar (§9) ───────────────────────────────────────────────────────
+// Two A races closer than this can't both be peaked for; the second is planned as a B race.
+export const A_RACE_MIN_SEPARATION_WEEKS = 12;
+export const C_RACE_REDUCED_SURROUNDING_DAYS = 2; // trained through, days either side eased
+
 // ── Taper — Bosquet et al. 2007; Wang et al. 2023 (§8.3) ─────────────────────
 export const TAPER_VOLUME_REDUCTION_RANGE = [0.41, 0.6] as const;
 export const TAPER_WEEKLY_DECAY = 0.65;

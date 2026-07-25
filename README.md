@@ -33,7 +33,7 @@ This repository is being built in verifiable increments against the roadmap in
   drift, recompute W/kg, protect durability). Every change emits exactly
   one audited mutation with an athlete-readable sentence (I13). The Phase-5 gate passes: *a
   24-week Ironman plan that satisfies every invariant with no gaps*. Pure functions, no
-  React/Supabase/network/clock. **100% branch coverage; golden fixtures (F1–F10, F12, F13) and
+  React/Supabase/network/clock. **100% branch coverage; golden fixtures (F1–F13, all of them) and
   property tests pass.**
 - **Database layer** (Phase 1) — Postgres migrations for all 21 tables with **complete
   row-level security** and an automated isolation test that proves each athlete sees only
@@ -72,9 +72,11 @@ Set `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.e
 | Athlete model | `anchors/hrMax`, `hrRest`, `criticalPower`, `dfaAlpha1`, `reconcile` | F3, F4, F5, I14 |
 | Zones (both modes) | `zones/build`, `zones/seiler` | F1, F2, I1–I4 |
 | Load | `load/tss`, `trimp`, `srpe`, `fitness` | F6 |
-| Planning (§8) | `plan/{macro,micro,taper,assemble,generate,invariants}`, `distribution` | F7, F8, I5–I11 |
-| Adaptation (§10) | `readiness/{score,response,return}`, `plan/{reschedule,replan}` | F9, F10, I12, I13 |
-| Durability (§11) | `durability/decoupling` | F12 |
+| Planning (§8, §9) | `plan/{macro,micro,taper,assemble,generate,races,invariants}`, `distribution` | F7, F8, I5–I11 |
+| Classification (§3.4) | `distribution/classify` | F11 |
+| Sessions (§7) | `sessions/{library,strength,heat}` | F13 |
+| Adaptation (§10) | `readiness/{score,response,return}`, `plan/{reschedule,actions,replan}` | F9, F10, I12, I13 |
+| Durability (§11) |  `durability/decoupling`, `load/meanMax` | F12 |
 | Field tests (§12) | `plan/fieldtest` | §12 placement rules |
 | Confidence → behaviour (§2.4) | `confidence` | ties I15 |
 | Purity / determinism | (all) | I16 |
@@ -102,7 +104,7 @@ ironflow/
 │   └── config/               # shared tsconfig + Tailwind preset
 ├── supabase/
 │   ├── migrations/           # Postgres schema + complete RLS (Phase 1)
-│   ├── seed/fixtures/        # golden fixtures (F1–F6) as JSON contract tests
+│   ├── seed/fixtures/        # golden fixtures (F1–F13) as JSON contract tests
 │   └── tests/                # automated RLS isolation test (Phase 1 gate)
 ├── examples/engine-demo.mjs  # runnable plain-Node walkthrough
 ├── CLAUDE.md                 # repo rules for Claude Code

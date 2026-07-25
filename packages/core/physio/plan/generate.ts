@@ -77,6 +77,15 @@ export function weekStartISO(iso: string, weekStartDay = 1): string {
   return addDaysISO(iso, -dayOffset(dayOfWeekISO(iso), weekStartDay));
 }
 
+/** Whole calendar days from `from` to `to`; negative when `to` is earlier. */
+export function daysBetweenISO(from: string, to: string): number {
+  const utc = (iso: string): number => {
+    const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((utc(to) - utc(from)) / 86_400_000);
+}
+
 /**
  * Assemble a plan and schedule every session onto a real date. Workouts are returned in
  * chronological order, ready to persist.

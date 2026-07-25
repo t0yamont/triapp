@@ -58,6 +58,12 @@ export const MAX_CONSECUTIVE_HARD_DAYS = 2;
 export const MAX_WEEKLY_S3_TIME_PCT = 0.1;
 export const MAX_WEEKLY_S3_TIME_PCT_BASE = 0.08;
 export const MONOTONY_CEILING = 2.0; // Foster 1998. REFERENCES.md §"Load model".
+// G8 strain = weekly load × monotony, flagged above this multiple of the 12-week rolling
+// mean (Foster 1998). REFERENCES.md §"Load model".
+export const STRAIN_FLAG_MULTIPLE = 1.5;
+export const STRAIN_ROLLING_WEEKS = 12;
+// G9 post-race: recovery days before any S3 = race hours rounded up, never fewer than this.
+export const POST_RACE_MIN_RECOVERY_DAYS = 2;
 
 // ── Taper — Bosquet et al. 2007; Wang et al. 2023 (§8.3) ─────────────────────
 export const TAPER_VOLUME_REDUCTION_RANGE = [0.41, 0.6] as const;
@@ -187,6 +193,7 @@ export const DISTRIBUTION_TOLERANCE = { S1: 7, S2: 5, S3: 5 } as const;
 export const DISTRIBUTION_ROLLING_WEEKS = 3;
 // Moderate-drift check (§3.4): S2 time-in-zone above this fraction of weekly time warns.
 export const MODERATE_DRIFT_S2_TIME_PCT = 0.25;
+export const MODERATE_DRIFT_REASON = 'MODERATE_DRIFT'; // machine-readable (F11, P1)
 
 // ── Weekly re-planning triggers (§10.3) ──────────────────────────────────────
 // Week-boundary evaluations from spec/03-ALGORITHM.md §10.3. Adjust the plan, not the athlete.

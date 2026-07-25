@@ -1,0 +1,29 @@
+{
+  "id": "F11",
+  "description": "Distribution accounting divergence (07-ACCEPTANCE.md §B F11)",
+  "input": {
+    "sessions": [
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2760, "S2": 840, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2760, "S2": 840, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2760, "S2": 840, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2760, "S2": 840, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S3", "timeInZoneS": { "S1": 1200, "S2": 960, "S3": 1440 } }
+    ]
+  },
+  "expected": {
+    "sessionGoal": { "S1": 80, "S2": 0, "S3": 20 },
+    "timeInZone": { "S1": 68, "S2": 24, "S3": 8 },
+    "moderateDrift": false
+  },
+  "warnAt26": {
+    "description": "same week with S2 time-in-zone at 26% — now warns",
+    "sessions": [
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2670, "S2": 930, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2670, "S2": 930, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2670, "S2": 930, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S1", "timeInZoneS": { "S1": 2670, "S2": 930, "S3": 0 } },
+      { "durationMin": 60, "goalZone": "S3", "timeInZoneS": { "S1": 1200, "S2": 960, "S3": 1440 } }
+    ],
+    "expected": { "timeInZoneS2": 26, "moderateDrift": true, "reasonCode": "MODERATE_DRIFT" }
+  }
+}

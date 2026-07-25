@@ -6,8 +6,10 @@ import {
   consecutiveHardDays,
   dailyLoads,
   isValidWeek,
+  longestBySport,
   monotony,
   rampCap,
+  strain,
   s3TimeFraction,
   validateWeek,
   weekLoad,
@@ -173,5 +175,60 @@ describe('validateWeek — guardrails G4/G5/G6/G7/G10', () => {
       sessions: [0, 1, 2, 3, 4, 5, 6].map((d) => session({ dayOfWeek: d, load: 50, durationMin: 30 })),
     });
     expect(validateWeek(flat).some((v) => v.code === 'G7_MONOTONY')).toBe(true);
+  });
+
+  const hasCode = (w: GuardrailWeek, code: string) => validateWeek(w).some((v) => v.code === code);
+
+  it('G2 — caps longest-session growth at +10% or +15 min, whichever is smaller', () => {
+    const w = (min: number) => base({ sessions: [session({ dayOfWeek: 6, sport: 'run', durationMin: min, load: 100 })] });
+    // prior 100 min → cap is +10 min (10% < 15 min)
+    expect(hasCode(w(110), 'G2_LONG_SESSION_GROWTH')).toBe(false);
+    expect(hasCode({ ...w(111), priorLongestBySport: { run: 100 } }, 'G2_LONG_SESSION_GROWTH')).toBe(true);
+    expect(hasCode({ ...w(110), priorLongestBySport: { run: 100 } }, 'G2_LONG_SESSION_GROWTH')).toBe(false);
+    // prior 300 min → 10% is 30, so the +15 min cap binds instead
+    expect(hasCode({ ...w(316), priorLongestBySport: { run: 300 } }, 'G2_LONG_SESSION_GROWTH')).toBe(true);
+    expect(hasCode({ ...w(315), priorLongestBySport: { run: 300 } }, 'G2_LONG_SESSION_GROWTH')).toBe(false);
+    // a sport with no prior longest is not checked
+    expect(hasCode({ ...w(400), priorLongestBySport: { bike: 60 } }, 'G2_LONG_SESSION_GROWTH')).toBe(false);
+  });
+
+  it('G8 — flags strain above 1.5× the athlete\'s 12-week mean', () => {
+    const w = base({ sessions: [session({ dayOfWeek: 1, load: 100, durationMin: 60 })] });
+    const s = strain(dailyLoads(w.sessions));
+    expect(hasCode({ ...w, strainRollingMean: s / 2 }, 'G8_STRAIN')).toBe(true); // 2× the mean
+    expect(hasCode({ ...w, strainRollingMean: s }, 'G8_STRAIN')).toBe(false); // at the mean
+    expect(hasCode({ ...w, strainRollingMean: 0 }, 'G8_STRAIN')).toBe(false); // no history yet
+    expect(hasCode(w, 'G8_STRAIN')).toBe(false); // not supplied
+  });
+
+  it('G9 — no S3 inside the post-race recovery window (race hours, min 2 days)', () => {
+    const s3On = (day: number) => base({ sessions: [session({ dayOfWeek: day, sZone: 'S3', durationMin: 20, load: 60, isHard: true })] });
+    // A 10-hour race → 10 recovery days. Monday (offset 0) is day 1 after the race.
+    expect(hasCode({ ...s3On(1), daysSinceRace: 1, raceDurationH: 10 }, 'G9_POST_RACE_RECOVERY')).toBe(true);
+    expect(hasCode({ ...s3On(1), daysSinceRace: 10, raceDurationH: 10 }, 'G9_POST_RACE_RECOVERY')).toBe(false);
+    // A short race still earns the 2-day floor.
+    expect(hasCode({ ...s3On(1), daysSinceRace: 1, raceDurationH: 0.5 }, 'G9_POST_RACE_RECOVERY')).toBe(true);
+    expect(hasCode({ ...s3On(3), daysSinceRace: 1, raceDurationH: 0.5 }, 'G9_POST_RACE_RECOVERY')).toBe(false); // Wed → 3 days
+    // Easy sessions inside the window are fine, and the check is skipped without race context.
+    const easy = base({ sessions: [session({ dayOfWeek: 1, sZone: 'S1', durationMin: 40, load: 40 })] });
+    expect(hasCode({ ...easy, daysSinceRace: 1, raceDurationH: 10 }, 'G9_POST_RACE_RECOVERY')).toBe(false);
+    expect(hasCode(s3On(1), 'G9_POST_RACE_RECOVERY')).toBe(false);
+  });
+});
+
+describe('Strain and longest-session helpers (§5.3)', () => {
+  it('strain is weekly load × monotony', () => {
+    const daily = [0, 100, 0, 50, 0, 0, 0];
+    expect(strain(daily)).toBeCloseTo(150 * monotony(daily), 6);
+  });
+
+  it('longestBySport takes the longest session per sport', () => {
+    expect(
+      longestBySport([
+        session({ dayOfWeek: 1, sport: 'run', durationMin: 45 }),
+        session({ dayOfWeek: 2, sport: 'run', durationMin: 90 }),
+        session({ dayOfWeek: 3, sport: 'bike', durationMin: 200 }),
+      ]),
+    ).toEqual({ run: 90, bike: 200 });
   });
 });

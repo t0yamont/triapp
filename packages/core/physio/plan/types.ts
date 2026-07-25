@@ -54,6 +54,14 @@ export interface GuardrailWeek {
   sessions: WeekSession[];
   /** Preceding week's total load — required to check the recovery-week range (G4). */
   priorWeekLoad?: number;
+  /** Preceding week's longest session per sport, in minutes — required for G2. */
+  priorLongestBySport?: Partial<Record<PlanSport, number>>;
+  /** The athlete's 12-week rolling mean strain — required for G8. */
+  strainRollingMean?: number;
+  /** Days since the athlete's last race as of this week's first day — required for G9. */
+  daysSinceRace?: number;
+  /** That race's duration in hours — sets the G9 recovery window. */
+  raceDurationH?: number;
 }
 
 export interface Violation {

@@ -7,17 +7,21 @@
  */
 
 import {
+  LONG_SESSION_GROWTH_MAX_MIN,
+  LONG_SESSION_GROWTH_PCT,
   MAX_CONSECUTIVE_HARD_DAYS,
   MAX_WEEKLY_S3_TIME_PCT,
   MAX_WEEKLY_S3_TIME_PCT_BASE,
   MONOTONY_CEILING,
+  POST_RACE_MIN_RECOVERY_DAYS,
   RAMP_CAP_APPLIED_REASON,
   RAMP_CAP_DEFAULT,
   RAMP_CAP_LOW_CONFIDENCE,
   RAMP_CAP_NOVICE,
   RECOVERY_WEEK_LOAD_RANGE,
+  STRAIN_FLAG_MULTIPLE,
 } from '../constants.js';
-import type { GuardrailWeek, Violation, WeekSession } from './types.js';
+import type { GuardrailWeek, PlanSport, Violation, WeekSession } from './types.js';
 
 // ── G1 — weekly load ramp ────────────────────────────────────────────────────
 
@@ -109,6 +113,21 @@ export function monotony(daily: number[]): number {
   return sd === 0 ? Infinity : mean / sd;
 }
 
+/** Foster strain: weekly load × monotony (§5.3 G8). */
+export function strain(daily: number[]): number {
+  return daily.reduce((a, b) => a + b, 0) * monotony(daily);
+}
+
+/** Longest session per sport this week, in minutes (§5.3 G2). */
+export function longestBySport(sessions: WeekSession[]): Partial<Record<PlanSport, number>> {
+  const out: Partial<Record<PlanSport, number>> = {};
+  for (const s of sessions) out[s.sport] = Math.max(out[s.sport] ?? 0, s.durationMin);
+  return out;
+}
+
+/** Offset of a weekday from the week's first day (Mon-first by default). */
+const dayOffset = (dayOfWeek: number, weekStartDay: number): number => (dayOfWeek - weekStartDay + 7) % 7;
+
 // ── Week validation (G4, G5, G6, G7, G10) ────────────────────────────────────
 
 /** Return every guardrail a week violates. Empty ⇒ the week is safe to persist. */
@@ -150,12 +169,56 @@ export function validateWeek(week: GuardrailWeek, weekStartDay = 1): Violation[]
     }
   }
 
-  const mono = monotony(dailyLoads(week.sessions));
+  const daily = dailyLoads(week.sessions);
+  const mono = monotony(daily);
   if (mono > MONOTONY_CEILING) {
     violations.push({
       code: 'G7_MONOTONY',
       message: `weekly monotony ${mono.toFixed(2)} exceeds the ceiling of ${MONOTONY_CEILING}`,
     });
+  }
+
+  // G2 — the classic long-run injury vector: the longest session in a sport may grow by at
+  // most 10% or 15 min, whichever is smaller, per week.
+  if (week.priorLongestBySport) {
+    for (const [sport, longest] of Object.entries(longestBySport(week.sessions)) as [PlanSport, number][]) {
+      const prior = week.priorLongestBySport[sport];
+      if (prior === undefined) continue;
+      const cap = prior + Math.min(prior * LONG_SESSION_GROWTH_PCT, LONG_SESSION_GROWTH_MAX_MIN);
+      if (longest > cap) {
+        violations.push({
+          code: 'G2_LONG_SESSION_GROWTH',
+          message: `longest ${sport} grew to ${longest} min, above the ${Math.floor(cap)} min cap from ${prior} min`,
+        });
+      }
+    }
+  }
+
+  // G8 — strain (load × monotony) spiking above the athlete's own recent norm.
+  if (week.strainRollingMean !== undefined && week.strainRollingMean > 0) {
+    const weekStrain = strain(daily);
+    const ceiling = week.strainRollingMean * STRAIN_FLAG_MULTIPLE;
+    if (weekStrain > ceiling) {
+      violations.push({
+        code: 'G8_STRAIN',
+        message: `strain ${weekStrain.toFixed(0)} exceeds ${STRAIN_FLAG_MULTIPLE}× the 12-week mean (${ceiling.toFixed(0)})`,
+      });
+    }
+  }
+
+  // G9 — no S3 until the post-race recovery window has passed.
+  if (week.daysSinceRace !== undefined && week.raceDurationH !== undefined) {
+    const required = Math.max(POST_RACE_MIN_RECOVERY_DAYS, Math.ceil(week.raceDurationH));
+    for (const s of week.sessions) {
+      if (s.sZone !== 'S3') continue;
+      const elapsed = week.daysSinceRace + dayOffset(s.dayOfWeek, weekStartDay);
+      if (elapsed < required) {
+        violations.push({
+          code: 'G9_POST_RACE_RECOVERY',
+          message: `S3 session ${elapsed} days after the race, inside the ${required}-day recovery window`,
+        });
+      }
+    }
   }
 
   return violations;

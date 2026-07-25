@@ -29,6 +29,7 @@ export * from './load/fitness.js';
 
 // Distribution (§3.4, §4)
 export * from './distribution/policy.js';
+export * from './distribution/classify.js';
 
 // Planning — periodisation & guardrails (§4, §5.3, §8)
 export * from './plan/types.js';

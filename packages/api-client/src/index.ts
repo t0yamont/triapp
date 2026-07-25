@@ -11,3 +11,4 @@ export * from './schemas.js';
 export * from './streams.js';
 export * from './repositories/activities.js';
 export * from './repositories/plans.js';
+export * from './repositories/races.js';

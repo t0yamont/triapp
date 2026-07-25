@@ -417,3 +417,50 @@ and Triathlete.
 **Scope not implemented.** No composite triathlon goal-time model (swim+bike+run pacing) —
 Riegel is a running formula with no established multi-sport equivalent in the spec, and none
 is invented here. A per-sport goal (running legs only) is what's built.
+
+---
+
+## D-RACE-CALENDAR-CATALOG — Races page runs on the engine; onboarding offers real races
+
+**Status:** implemented. **Spec:** §9 (race calendar resolution); 06-UX.md §5.
+
+**The Races page now resolves through the engine.** It previously picked its A race with
+`RACES.find((r) => r.priority === 'A')` and rendered the athlete's *stated* priorities as
+fact — no demotion, no conflict detection, no taper or recovery derivation, none of §9. It
+now maps its races to `RaceEntry[]` and calls `resolveRaceCalendar`, so what the page shows
+is what the planner would actually do: the primary race, each race's treatment and its
+engine-authored `note`, taper length, the G9 recovery block, and the `A_RACES_TOO_CLOSE`
+warning when two A races sit inside the 12-week separation window. The sample athlete and a
+real athlete go through the identical path (`lib/race-calendar.ts`), so the demo cannot drift
+from real behaviour.
+
+**Races are read live.** `getUpcomingRaces` (api-client) reads the rows onboarding already
+writes; the page falls back to the sample athlete on no-env/signed-out/no-races/read-failure,
+the same rule `live-plan.ts` established. `goal_time_s` supplies `expectedDurationH`, which is
+what turns on the G9 recovery block — the athlete's own goal is the only expected-duration
+signal available before there is training data to predict from.
+
+**A curated race catalog, with per-entry date provenance.** Onboarding now asks for the
+distance first and then offers real, dated races at that distance
+(`apps/web/lib/raceCatalog.ts`), because a mistyped race date silently mis-sizes the entire
+plan — `totalWeeks` comes from that date. Each entry carries `dateStatus`:
+- `confirmed` — published for that edition, verified against organiser/press sources (Jul 2026).
+- `provisional` — derived from the event's own fixed rule (Boston is Patriots' Day; Peachtree
+  is 4 July; BOLDERBoulder is Memorial Day). The UI says so in warn tone and invites the
+  athlete to override.
+
+This mirrors `Estimate<T>`: a date we inferred must not render as a date the organiser
+published. During research, a countdown site gave "London Marathon 2027: Monday 26 April" —
+London is always a Sunday — which is exactly the failure mode the two-tier status exists to
+contain.
+
+**Coverage is deliberately uneven.** Long-course triathlon and big-city marathons publish
+dates far ahead and are well represented; sprint/olympic triathlon and 5k are overwhelmingly
+local, weekly, or announced late, and nothing there was verifiable, so those distances show
+"no races listed yet" and fall through to freehand entry rather than being padded with
+plausible-looking guesses. Freehand ("My race isn't listed") is always available at every
+distance — the catalog is a convenience, never a gate.
+
+**Known ceiling.** The catalog is a hand-maintained TS module (matching `eventMeta.ts`), so it
+goes stale and cannot be edited by a non-engineer. Marked `ponytail:` in the source with the
+upgrade path: a `race_catalog` table or an organiser feed, the moment either constraint bites.

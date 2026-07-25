@@ -15,6 +15,7 @@ import {
 import { Button, Card, ConfidenceDot, Field, Input, Select } from '@ironflow/ui';
 import { useMemo, useState } from 'react';
 import { EVENT_META, EVENT_TYPES } from '../../lib/eventMeta';
+import { formatRaceDate, racesForEvent, type CatalogRace } from '../../lib/raceCatalog';
 import { NotConnectedBanner } from '../NotConnectedBanner';
 import { supabaseConfigured, useSupabase } from '../../lib/supabase';
 
@@ -22,6 +23,8 @@ import { supabaseConfigured, useSupabase } from '../../lib/supabase';
 // not a guess at their actual fitness. Raised once real thresholds are measured (I14: only up).
 const NEW_ATHLETE_CONFIDENCE = 0.3;
 const DEFAULT_WEEKLY_HOURS_MAX = 10;
+/** Sentinel for "my race isn't listed" — the freehand escape from the catalog. */
+const MANUAL = '__manual__';
 
 function todayISO(): string {
   const d = new Date();
@@ -57,10 +60,26 @@ export interface RaceAndAbilityResult {
  */
 export function RaceAndAbilityForm({ onReady }: { onReady: (result: RaceAndAbilityResult) => void }) {
   const supabase = useSupabase();
-  const [raceName, setRaceName] = useState('');
-  const [raceDate, setRaceDate] = useState('');
   const [eventType, setEventType] = useState<EventType>('70.3');
+  const [catalogId, setCatalogId] = useState('');
+  const [manualName, setManualName] = useState('');
+  const [manualDate, setManualDate] = useState('');
   const [priority, setPriority] = useState<'A' | 'B' | 'C'>('A');
+
+  const today = todayISO();
+  // Real, dated races at the chosen distance — so the athlete picks their race rather than
+  // typing a date they may get wrong, which would silently mis-size the whole plan. Freehand
+  // stays available: no bundled list is complete, and none of these are load-bearing.
+  const catalogOptions = useMemo(() => racesForEvent(eventType, today), [eventType, today]);
+  const picked = useMemo(
+    () => catalogOptions.find((r) => r.id === catalogId) ?? null,
+    [catalogOptions, catalogId],
+  );
+  const manual = catalogId === MANUAL || catalogOptions.length === 0;
+  // Derived rather than mirrored into state, so the catalog and the freehand fields can never
+  // disagree about which race this is.
+  const raceName = picked ? picked.name : manualName;
+  const raceDate = picked ? picked.date : manualDate;
   const [goalH, setGoalH] = useState('');
   const [goalM, setGoalM] = useState('');
   const [goalS, setGoalS] = useState('');
@@ -114,9 +133,10 @@ export function RaceAndAbilityForm({ onReady }: { onReady: (result: RaceAndAbili
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!manual && !picked) return setError('Pick your race, or choose “My race isn’t listed”.');
     if (!raceName.trim()) return setError('Give your race a name.');
     if (!raceDate) return setError('When is it?');
-    if (raceDate <= todayISO()) return setError('Race day needs to be in the future.');
+    if (raceDate <= today) return setError('Race day needs to be in the future.');
     if (!window || window.verdict.adequacy === 'too_short') {
       return setError(window ? window.verdict.reasonText : 'Pick a race date first.');
     }
@@ -159,6 +179,7 @@ export function RaceAndAbilityForm({ onReady }: { onReady: (result: RaceAndAbili
           priority,
           event_type: eventType,
           goal_time_s: goalTimeS ?? null,
+          ...(picked ? { location: picked.location } : {}),
         });
         if (raceErr) {
           setBusy(false);
@@ -204,23 +225,57 @@ export function RaceAndAbilityForm({ onReady }: { onReady: (result: RaceAndAbili
 
           <div className="flex flex-col gap-4">
             <span className="text-label uppercase tracking-widest text-faint">Your race</span>
-            <Field label="Race name" htmlFor="raceName">
-              <Input id="raceName" value={raceName} onChange={(e) => setRaceName(e.target.value)} placeholder="Weymouth 70.3" />
+            <Field label="Distance" htmlFor="eventType">
+              <Select
+                id="eventType"
+                value={eventType}
+                onChange={(e) => {
+                  setEventType(e.target.value as EventType);
+                  setCatalogId(''); // a race at the old distance no longer applies
+                }}
+              >
+                {EVENT_TYPES.map((et) => (
+                  <option key={et} value={et}>
+                    {EVENT_META[et].label}
+                  </option>
+                ))}
+              </Select>
             </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Race date" htmlFor="raceDate">
-                <Input id="raceDate" type="date" min={todayISO()} value={raceDate} onChange={(e) => setRaceDate(e.target.value)} />
-              </Field>
-              <Field label="Distance" htmlFor="eventType">
-                <Select id="eventType" value={eventType} onChange={(e) => setEventType(e.target.value as EventType)}>
-                  {EVENT_TYPES.map((et) => (
-                    <option key={et} value={et}>
-                      {EVENT_META[et].label}
+
+            {catalogOptions.length > 0 ? (
+              <Field
+                label="Which race?"
+                htmlFor="catalogRace"
+                hint="Upcoming races at this distance. Not a complete list — pick the last option to enter your own."
+              >
+                <Select id="catalogRace" value={catalogId} onChange={(e) => setCatalogId(e.target.value)}>
+                  <option value="">Choose a race…</option>
+                  {catalogOptions.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {formatRaceDate(r.date)} — {r.name}, {r.location}
                     </option>
                   ))}
+                  <option value={MANUAL}>My race isn&rsquo;t listed</option>
                 </Select>
               </Field>
-            </div>
+            ) : (
+              <p className="text-label text-faint">
+                No {EVENT_META[eventType].label.toLowerCase()} races listed yet — enter yours below.
+              </p>
+            )}
+
+            {picked ? <PickedRace race={picked} /> : null}
+
+            {manual ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Race name" htmlFor="raceName">
+                  <Input id="raceName" value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder="Weymouth 70.3" />
+                </Field>
+                <Field label="Race date" htmlFor="raceDate">
+                  <Input id="raceDate" type="date" min={today} value={manualDate} onChange={(e) => setManualDate(e.target.value)} />
+                </Field>
+              </div>
+            ) : null}
             <Field label="Priority" htmlFor="priority" hint="A drives the whole plan; B gets a local taper; C is trained through.">
               <Select id="priority" value={priority} onChange={(e) => setPriority(e.target.value as 'A' | 'B' | 'C')}>
                 <option value="A">A — the race the plan is built around</option>
@@ -291,6 +346,28 @@ export function RaceAndAbilityForm({ onReady }: { onReady: (result: RaceAndAbili
         </form>
       </Card>
     </main>
+  );
+}
+
+/**
+ * The chosen race, confirmed back to the athlete. A provisional date says so plainly rather
+ * than presenting an inferred date as fact — the same reason every estimate in this app
+ * carries its confidence.
+ */
+function PickedRace({ race }: { race: CatalogRace }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      <span className="text-body text-text">{race.name}</span>
+      <span className="text-label text-muted">
+        {formatRaceDate(race.date)} · {race.location}
+      </span>
+      {race.dateStatus === 'provisional' ? (
+        <span className="text-label text-warn">
+          Date not confirmed by the organiser yet — this is the date the event usually falls on. Check it
+          before you book, and pick &ldquo;My race isn&rsquo;t listed&rdquo; to set your own if it moves.
+        </span>
+      ) : null}
+    </div>
   );
 }
 

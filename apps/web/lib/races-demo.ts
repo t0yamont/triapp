@@ -1,62 +1,39 @@
 /**
- * lib/races-demo.ts — presentation glue for Races (06-UX.md §5; §9 race handling). The A race
- * drives the macrocycle, so its periodisation is computed by the engine's `layoutMacrocycle`.
- * Representative races; swaps to a live races read later.
+ * lib/races-demo.ts — the sample athlete's race calendar (06-UX.md §5; §9 race handling),
+ * shown when there is nothing live to read.
+ *
+ * These are only the raw races. Everything the page shows about them — which one drives the
+ * macrocycle, each race's treatment, taper and recovery — is resolved by the engine in
+ * `race-calendar.ts`, so the sample and a real athlete's calendar go through exactly the same
+ * code path.
  */
 
-import { layoutMacrocycle, type CourseType, type EventType, type MacroWeek } from '@ironflow/core/physio';
+import type { RaceSource } from './race-calendar';
 
-export type Priority = 'A' | 'B' | 'C';
-
-export interface RaceView {
-  id: string;
-  name: string;
-  dateLabel: string;
-  weeksOut: number;
-  eventLabel: string;
-  eventType: EventType;
-  course: CourseType;
-  priority: Priority;
-  conditions: string;
-}
-
-export const RACES: RaceView[] = [
+export const DEMO_RACES: RaceSource[] = [
   {
     id: 'a',
     name: 'Outlaw Full',
-    dateLabel: '27 Nov 2026',
-    weeksOut: 18,
-    eventLabel: 'Ironman · 3.8k / 180k / 42.2k',
+    date: '2026-11-27',
     eventType: 'ironman',
-    course: 'long',
     priority: 'A',
-    conditions: 'Cool, likely wet · flat bike',
+    detail: 'Cool, likely wet · flat bike',
+    expectedDurationH: 12,
   },
   {
     id: 'b',
     name: 'Nottingham Olympic',
-    dateLabel: '11 Sep 2026',
-    weeksOut: 7,
-    eventLabel: 'Olympic · 1.5k / 40k / 10k',
+    date: '2026-09-11',
     eventType: 'olympic_tri',
-    course: 'short',
     priority: 'B',
-    conditions: 'Mild · rolling',
+    detail: 'Mild · rolling',
   },
   {
     id: 'c',
     name: 'Parkrun 10k',
-    dateLabel: '14 Aug 2026',
-    weeksOut: 3,
-    eventLabel: '10k road',
+    date: '2026-08-14',
     eventType: '10k',
-    course: 'short',
     priority: 'C',
-    conditions: 'Trained through',
+    detail: 'Local, flat',
   },
 ];
-
-/** The A race owns the plan structure — its full macrocycle, from now to race day. */
-export function aRaceMacro(race: RaceView): MacroWeek[] {
-  return layoutMacrocycle({ totalWeeks: race.weeksOut, eventType: race.eventType, course: race.course });
-}

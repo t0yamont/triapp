@@ -1,5 +1,5 @@
 import { Card } from '@ironflow/ui';
-import type { Priority, RaceView } from '../../lib/races-demo';
+import type { Priority, RaceView } from '../../lib/race-calendar';
 
 const PRIORITY: Record<Priority, { label: string; chip: string }> = {
   A: { label: 'A race', chip: 'border-accent/40 bg-accent/[0.15] text-accent-bright' },
@@ -16,7 +16,13 @@ export function RaceCard({ race }: { race: RaceView }) {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        {priorityChip(race.priority)}
+        <div className="flex items-center gap-2">
+          {/* The chip shows what the plan actually does with this race, not what was asked for. */}
+          {priorityChip(race.resolved.effectivePriority)}
+          {race.demoted ? (
+            <span className="text-label text-faint">asked for {race.priority}</span>
+          ) : null}
+        </div>
         <span className="font-mono text-label tabular-nums text-faint">{race.weeksOut} wks</span>
       </div>
       <div className="flex flex-col gap-0.5">
@@ -25,9 +31,20 @@ export function RaceCard({ race }: { race: RaceView }) {
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-faint">
         <span className="text-muted">{race.dateLabel}</span>
-        <span>·</span>
-        <span>{race.conditions}</span>
+        {race.detail ? (
+          <>
+            <span>·</span>
+            <span>{race.detail}</span>
+          </>
+        ) : null}
+        {race.resolved.taperDays > 0 ? (
+          <>
+            <span>·</span>
+            <span>{race.resolved.taperDays}-day taper</span>
+          </>
+        ) : null}
       </div>
+      <p className="text-label text-muted">{race.resolved.note}</p>
     </Card>
   );
 }

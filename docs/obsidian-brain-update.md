@@ -10,6 +10,37 @@ Suggested note structure: one MOC (`TriFlow`) linking to `TriFlow/Engine`,
 
 ---
 
+## 0. Latest — rebrand + onboarding UI is live (this update)
+
+Two things changed since the previous sync (which covered the engine-layer goal-time/CSS work):
+
+1. **The product was renamed IronFlow → TriFlow.** Scoped: user-facing text, docs, code
+   comments. The internal `@ironflow/*` pnpm package scope (`core`, `ui`, `web`, `api-client`,
+   `config`) was deliberately **not** touched — renaming it means editing every import
+   specifier in the monorepo for zero user-visible benefit. If the vault has any old
+   `IronFlow`-named notes, retitle them; internal package names in code snippets are correctly
+   still `@ironflow/*` and should **not** be "corrected."
+2. **The onboarding UI is wired up** — this closes the gap the previous sync flagged as
+   "engine layer only." `RaceAndAbilityForm` (Step 7 of 8) now collects race date, event type,
+   goal time, and current ability (longest continuous run/ride/swim, sessions/week, weekly
+   hours, training age), shows live verdicts from the engine (plan-window adequacy, start
+   readiness, Riegel goal-feasibility), and feeds a *real* `generatePlan` call instead of a
+   hardcoded sample. Verified end-to-end with headless-Chrome screenshots of both the
+   triathlon and running branches.
+3. The UI font token switched **Inter → Geist** (UI) with JetBrains Mono unchanged (data),
+   matching the "Instrument Glass" design export a user uploaded to Claude's design tool
+   (`Downloads/Stamina Triathlon App Review.zip`, built from `docs/figma-redesign-brief.md`).
+   That export also confirmed every existing colour token, component spec, and climate palette
+   match what was already built — no other visual changes were needed.
+
+Design provenance note for the vault: the "Stamina" triathlon app screenshots the user
+supplied were a **competitor reference**, not the target design — they were fed into Claude's
+design tool alongside the IronFlow/TriFlow brief to produce the Instrument Glass exploration
+above. Worth a `#competitor-reference` tag distinct from `#design-system` if the vault tracks
+that distinction.
+
+---
+
 ## 1. What TriFlow is
 
 An adaptive multi-sport endurance training platform (triathlon / running / cycling). The
@@ -76,7 +107,10 @@ event's entry requirement; `predictRaceTime`/`assessGoalFeasibility` give a goal
 a **volume-tiered Riegel exponent** (Vickers & Vertosick 2016); `fitCriticalSwimSpeed` adds the
 CSS anchor swimming was missing, with its own `css_test` provenance tier (0.65). Full writeup and
 research citations in `docs/algorithm-review-2026-07.md`; the decision record is
-`DECISIONS.md` → `D-GOAL-TIME-CSS`. **Not yet wired to the onboarding UI** — engine layer only.
+`DECISIONS.md` → `D-GOAL-TIME-CSS`. **Now wired to the onboarding UI** (§0 above) — race date,
+baseline ability, and goal time are collected in `RaceAndAbilityForm` and drive a real
+`generatePlan` call. `fitCriticalSwimSpeed` itself is still engine-only (no swim field-test
+UI yet — that's the next gap, see §5 item 7 below).
 
 ### Web app
 Six working surfaces: Today, Calendar (drag-to-move with live engine week repair), Activities,
@@ -122,13 +156,13 @@ Others: `D-HEAT-MARGIN`, `D-SWIM-IF`, `D-TAPER-BOUNDS`, `D-FIELDTEST-READINESS`,
    still convention, not physiology; wants explicit owner sign-off.
 4. **G2 semantics** — confirm the peak-based reading.
 5. **Readiness-to-start gate** — should an under-prepared athlete be blocked or warned?
-6. **Onboarding UI** — should race date / baseline ability / goal time be built into the web
-   onboarding flow next, or should the heat-margin/swim-template items (§2.5 of the review) come
-   first?
+6. ~~**Onboarding UI**~~ — done (§0 above). `RaceAndAbilityForm`, Step 7 of 8.
+7. **Swim field test in the UI** — `fitCriticalSwimSpeed` exists but nothing in `apps/web` yet
+   captures a 200m/400m time trial to call it. Natural next step for §2.5.
 
 ---
 
-## 6. Next major workstream — §2.1–2.4 done, §2.5 open
+## 6. Next major workstream — §2.1–2.4 done and wired to the UI, §2.5 open
 
 See `docs/algorithm-review-2026-07.md` for the full argument and `DECISIONS.md` →
 `D-GOAL-TIME-CSS` for what the Perplexity re-run changed. Summary of what shipped:
@@ -148,8 +182,9 @@ See `docs/algorithm-review-2026-07.md` for the full argument and `DECISIONS.md` 
 swim-specific microcycle template (research showed beginners run 3 swims/week — technique,
 endurance, short intensity — while the engine currently treats swim as generic aerobic fill).
 
-**Also still open:** none of this is wired into `apps/web` onboarding yet — it's engine-layer,
-100%-covered functions waiting for a UI.
+**Update — wired.** Race date, baseline ability, and goal time are now live in `apps/web`
+onboarding (§0 above, `RaceAndAbilityForm`). CSS (`fitCriticalSwimSpeed`) is the one piece
+still engine-only, with no swim-test capture screen yet.
 
 Useful vault links: `#endurance-training`, `#periodisation`, `#hrv`, `#critical-power`,
 `#critical-swim-speed`, `#riegel`, `#durability`, `#guardrails`.

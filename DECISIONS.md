@@ -371,3 +371,49 @@ sport's longest session swung between weeks purely because the slot moved or dis
 *growing* 36 → 69 min inside a recovery week, which is both a G2 false positive and genuinely
 wrong prescription. It is also better physiology: §7.2's library renders VO₂ work for bike and
 run, while the swim in these plans is technique-focused.
+
+---
+
+## D-GOAL-TIME-CSS — Goal-time prediction and Critical Swim Speed, Perplexity-verified
+
+**Decision.** Implemented `plan/goalTime.ts` (Riegel race-time prediction, volume-tiered
+exponent) and `anchors/criticalSwimSpeed.ts` (CSS from a 200m/400m pair), closing two gaps
+from `docs/algorithm-review-2026-07.md` §2.3–2.4. Both were verified against real literature
+via Perplexity (`scripts/perplexity_query.py`) before implementation, per the user's
+instruction not to guess at physiology.
+
+**Riegel exponent.** Riegel's classic k=1.06 is optimistic for lower-volume recreational
+runners at the marathon (underpredicts by 10+ minutes). Vickers & Vertosick 2016 (*BMC Sports
+Science, Medicine and Rehabilitation*, >2M race results) give a volume-tiered exponent: 1.06
+high-volume, 1.09 moderate, 1.12 low-volume. Implemented as `riegelExponent(weeklyHours)` —
+the only training-volume signal onboarding actually collects (`BaselineAbility`). The paper's
+"elite" tier (k=1.04) is not implemented: this product targets age-groupers (PRODUCT.md), and
+we have no signal to distinguish elite from high-volume recreational.
+
+**Confidence, not rejection, for wide extrapolation.** Riegel is most accurate near the known
+distance (5k↔half) and degrades on wide extrapolation (10k→50k). Rather than reject predictions
+beyond some ratio, `predictRaceTime` floors confidence toward `population_formula` (0.2) as the
+distance ratio widens past `RIEGEL_LOW_CONFIDENCE_RATIO` (5×) — a low-confidence number is more
+useful than none for a feasibility check, and confidence-gating is the pattern the rest of the
+engine already uses (§2.4 tiers).
+
+**CSS provenance tier.** Added `css_test: 0.65` to `PROVENANCE_CONFIDENCE`, between
+`athlete_reported` (0.6) and `cp_model_fit` (0.7). Justification: Nikitakis & Toubekis found
+CSS vs measured MLSS at r=0.87, SEE=0.033 m/s, bias 0.07±0.13 m/s — a real field test, but with
+genuine disagreement against the lab standard it approximates, so it sits below `cp_model_fit`
+(which the spec already treats as CP's ceiling) rather than at `field_test` (0.85).
+
+**Entry-requirement correction.** The first-pass `EVENT_ENTRY_REQUIREMENTS` for 70.3/Ironman
+were extrapolated proportionally from Olympic distance and overshot badly (e.g. 70.3 entry
+swim was set to 1500m — nearly race distance). Cited 70.3 base-phase entry points (10 min
+swim / 45 min bike / 20 min run, building over the base phase to 25 min / 2h / 8km) show the
+entry bar for long-course is **not** proportionally higher than short-course: the extra
+distance is what the long plan itself builds over its many more weeks. Corrected to
+`swim 400–500m / ride 45–60min / run 20–25min` for 70.3/Ironman. `PLAN_WEEKS_BY_EVENT` was
+also nudged: 10k recommended 12→10 weeks, olympic_tri minimum 10→12 weeks, both to sit inside
+the ranges reported by MyProCoach, Campfire Endurance, IRONMAN's own 70.3 readiness content,
+and Triathlete.
+
+**Scope not implemented.** No composite triathlon goal-time model (swim+bike+run pacing) —
+Riegel is a running formula with no established multi-sport equivalent in the spec, and none
+is invented here. A per-sport goal (running legs only) is what's built.

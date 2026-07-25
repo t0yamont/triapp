@@ -14,6 +14,7 @@ export * from './confidence.js';
 export * from './anchors/hrMax.js';
 export * from './anchors/hrRest.js';
 export * from './anchors/criticalPower.js';
+export * from './anchors/criticalSwimSpeed.js';
 export * from './anchors/dfaAlpha1.js';
 export * from './anchors/reconcile.js';
 
@@ -44,6 +45,7 @@ export * from './plan/reschedule.js';
 export * from './plan/actions.js';
 export * from './plan/races.js';
 export * from './plan/onboarding.js';
+export * from './plan/goalTime.js';
 export * from './plan/fieldtest.js';
 export * from './plan/replan.js';
 

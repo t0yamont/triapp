@@ -72,25 +72,34 @@ export const POST_RACE_MIN_RECOVERY_DAYS = 2;
 //
 // `recommended` = a full run-up (a standard 70.3 build is ~20 weeks: 8 base / 6 build / 6 peak).
 // `minimum` = below this the engine advises a later race rather than compressing further.
+// Cross-checked against coaching-authority guidance (MyProCoach, Campfire Endurance, IRONMAN's
+// own 70.3 readiness content, Triathlete) — docs/algorithm-review-2026-07.md §research update.
+// '10k' recommended and olympic_tri minimum were revised from the first pass to sit inside the
+// cited ranges (10k: 8–10 wk typical, not 12; olympic: 12–16 wk typical, so a 10-week floor).
 export const PLAN_WEEKS_BY_EVENT = {
   ironman: { recommended: 24, minimum: 16 },
   '70.3': { recommended: 20, minimum: 12 },
   marathon: { recommended: 16, minimum: 12 },
-  olympic_tri: { recommended: 16, minimum: 10 },
+  olympic_tri: { recommended: 16, minimum: 12 },
   half_marathon: { recommended: 12, minimum: 8 },
-  '10k': { recommended: 12, minimum: 8 },
+  '10k': { recommended: 10, minimum: 8 },
   sprint_tri: { recommended: 8, minimum: 6 },
   '5k': { recommended: 8, minimum: 6 },
 } as const;
 
 // What an athlete should be able to cover continuously before starting the event's plan proper.
-// Same caveat: convention drawn from published beginner plans, not physiology.
+// Same caveat: convention, not physiology. The long-course figures were revised from the first
+// pass: they were extrapolated proportionally from Olympic distance, which overshot badly.
+// Cited base-phase entry points for a 70.3 (10 min swim / 45 min bike / 20 min run, building to
+// 25 min / 2 h / 8 km over the base phase) show the entry bar for long-course is NOT
+// proportionally higher than short-course — the extra distance is what the long plan itself
+// builds. See docs/algorithm-review-2026-07.md §research update.
 export const EVENT_ENTRY_REQUIREMENTS: Record<
   keyof typeof TAPER_TABLE,
   { swimM?: number; rideMin?: number; runMin?: number }
 > = {
-  ironman: { swimM: 2000, rideMin: 150, runMin: 75 },
-  '70.3': { swimM: 1500, rideMin: 120, runMin: 60 },
+  ironman: { swimM: 500, rideMin: 60, runMin: 25 },
+  '70.3': { swimM: 400, rideMin: 45, runMin: 20 },
   olympic_tri: { swimM: 800, rideMin: 60, runMin: 30 },
   sprint_tri: { swimM: 400, rideMin: 20, runMin: 10 },
   marathon: { runMin: 75 },
@@ -208,10 +217,44 @@ export const PROVENANCE_CONFIDENCE = {
   dfa_a1_multi: 0.75, // ≥3 sessions agreeing
   cp_model_fit: 0.7, // good-quality mean-max fit
   athlete_reported: 0.6,
+  // CSS tracks lactate-threshold speed reasonably but not exactly: r=0.87, SEE=0.033 m/s vs
+  // measured MLSS (Nikitakis & Toubekis; docs/algorithm-review-2026-07.md §2.4) — a genuine
+  // field test, so above athlete_reported, but with real disagreement against the lab
+  // standard it approximates, so below cp_model_fit.
+  css_test: 0.65,
   dfa_a1_single: 0.5,
+  // A single-race Riegel extrapolation (§goal time). Ceiling for a near-distance prediction
+  // (e.g. 10k → half); actual confidence scales down with extrapolation distance — see
+  // RIEGEL_CONFIDENCE_FLOOR_RATIO in plan/goalTime.ts.
+  riegel_prediction: 0.6,
   passive_inference: 0.4,
   population_formula: 0.2,
 } as const;
+
+// ── Race-time prediction — Riegel formula, volume-tiered exponent (§goal time) ──
+// T2 = T1 × (D2/D1)^k. Riegel's original k=1.06 fits mid-distance well for a general
+// population but is demonstrably optimistic for lower-volume recreational runners at the
+// marathon. Tiered exponent from Vickers & Vertosick 2016 (BMC Sports Science, Medicine and
+// Rehabilitation; >2M race results) — see docs/algorithm-review-2026-07.md §2.3 for the
+// research this resolved. Tier is chosen from the athlete's stated weekly training hours
+// (BaselineAbility), the only volume signal onboarding actually collects.
+export const RIEGEL_EXPONENT_HIGH_VOLUME = 1.06; // ≥8 h/week
+export const RIEGEL_EXPONENT_MODERATE_VOLUME = 1.09; // 4–8 h/week
+export const RIEGEL_EXPONENT_LOW_VOLUME = 1.12; // <4 h/week
+export const RIEGEL_HIGH_VOLUME_HOURS = 8;
+export const RIEGEL_MODERATE_VOLUME_HOURS = 4;
+// Beyond this distance ratio the formula "violates the model" per Riegel's own guidance
+// (most accurate 5k↔half; a 10k predicts a half far more reliably than a 50k) — confidence
+// is floored rather than the estimate rejected, since a number with low confidence is still
+// more useful than no number at all for a feasibility check.
+export const RIEGEL_LOW_CONFIDENCE_RATIO = 5;
+
+// ── Critical Swim Speed (§6.3) ────────────────────────────────────────────────
+export const CSS_SHORT_M = 200;
+export const CSS_LONG_M = 400;
+// The 200 m split must not be paced faster than CSS by more than this fraction, or it was a
+// sprint rather than a threshold effort and the resulting CSS would be inflated.
+export const CSS_MAX_PACE_DRIFT = 0.15;
 
 // ── DFA-a1 detection windowing (§6.1) ────────────────────────────────────────
 // Standard DFA-a1 uses short-term box sizes 4–16 beats. Rolling 2-minute windows every

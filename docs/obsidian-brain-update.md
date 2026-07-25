@@ -49,15 +49,16 @@ Spec bundle in `/spec` is the source of truth; `/spec/03-ALGORITHM.md` is the en
 
 ## 3. Engine state (as built)
 
-**308 tests, 100% branch coverage. All golden fixtures F1–F13 implemented.**
+**341 tests, 100% branch coverage. All golden fixtures F1–F13 implemented.**
 
 | Area | Modules |
 |---|---|
-| Athlete model (§2, §6) | `anchors/{hrMax,hrRest,criticalPower,dfaAlpha1,reconcile}` |
+| Athlete model (§2, §6) | `anchors/{hrMax,hrRest,criticalPower,criticalSwimSpeed,dfaAlpha1,reconcile}` |
 | Zones (§3) | `zones/{build,seiler}` |
 | Load (§5) | `load/{tss,trimp,srpe,fitness,meanMax}` |
 | Classification (§3.4) | `distribution/{policy,classify}` |
 | Planning (§8, §9) | `plan/{macro,micro,taper,assemble,generate,races,invariants}` |
+| Onboarding (new) | `plan/{onboarding,goalTime}` — race date, baseline ability, goal time |
 | Adaptation (§10) | `readiness/{score,response,return}`, `plan/{reschedule,actions,replan}` |
 | Sessions (§7) | `sessions/{library,strength,heat}` |
 | Durability (§11) | `durability/decoupling`, `load/meanMax` |
@@ -65,6 +66,17 @@ Spec bundle in `/spec` is the source of truth; `/spec/03-ALGORITHM.md` is the en
 
 **Phase-8 gate passes:** a 12-week simulated season across 20 synthetic athletes with zero
 guardrail violations (`__tests__/season.test.ts`).
+
+**New since the last brain sync — onboarding is unblocked.** The engine previously required
+`totalWeeks` and a `startingLoad` no athlete could supply. Now: `weeksToRace`/`assessPlanWindow`
+derive plan length from a race date; `baselineWeeklyLoad`/`baselineLongestBySport` derive the
+ramp base and seed week-1's G2 check from questions an athlete can answer ("how long can you
+currently run/ride/swim continuously"); `assessStartReadiness` gates plan start against an
+event's entry requirement; `predictRaceTime`/`assessGoalFeasibility` give a goal-time verdict via
+a **volume-tiered Riegel exponent** (Vickers & Vertosick 2016); `fitCriticalSwimSpeed` adds the
+CSS anchor swimming was missing, with its own `css_test` provenance tier (0.65). Full writeup and
+research citations in `docs/algorithm-review-2026-07.md`; the decision record is
+`DECISIONS.md` → `D-GOAL-TIME-CSS`. **Not yet wired to the onboarding UI** — engine layer only.
 
 ### Web app
 Six working surfaces: Today, Calendar (drag-to-move with live engine week repair), Activities,
@@ -105,29 +117,39 @@ Others: `D-HEAT-MARGIN`, `D-SWIM-IF`, `D-TAPER-BOUNDS`, `D-FIELDTEST-READINESS`,
    rather than an invented constant.
 2. **Swim IF direction** — §5.1 defines swim `IF = CSS speed / actual speed`, which inverts
    (IF > 1 when swimming *easier* than CSS).
-3. **Minimum plan weeks per event** — proposed table is coaching convention, not physiology;
-   needs sign-off.
+3. **Minimum plan weeks / entry-requirement sign-off** — implemented with values cross-checked
+   against multiple coaching sources (MyProCoach, Campfire Endurance, IRONMAN, Triathlete), but
+   still convention, not physiology; wants explicit owner sign-off.
 4. **G2 semantics** — confirm the peak-based reading.
 5. **Readiness-to-start gate** — should an under-prepared athlete be blocked or warned?
+6. **Onboarding UI** — should race date / baseline ability / goal time be built into the web
+   onboarding flow next, or should the heat-margin/swim-template items (§2.5 of the review) come
+   first?
 
 ---
 
-## 6. Next major workstream (proposed, not built)
+## 6. Next major workstream — §2.1–2.4 done, §2.5 open
 
-See `docs/algorithm-review-2026-07.md` for the full argument. Summary:
+See `docs/algorithm-review-2026-07.md` for the full argument and `DECISIONS.md` →
+`D-GOAL-TIME-CSS` for what the Perplexity re-run changed. Summary of what shipped:
 
-**The engine can't currently be driven by a real athlete.** It asks for `totalWeeks` and
-`startingLoad` (a "3-week rolling mean load") — numbers no athlete can supply. Missing entirely:
+- **Race date** (`weeksToRace`, `assessPlanWindow`) → plan length derives from it, with an
+  honest `recommended`/`compressed`/`too_short` verdict instead of silently thinning the plan.
+- **Baseline ability per sport** (`BaselineAbility`, `baselineWeeklyLoad`,
+  `baselineLongestBySport`, `assessStartReadiness`) → derives the ramp base, gates readiness to
+  start, and seeds the week-1 G2 check.
+- **Goal time** (`predictRaceTime`, `assessGoalFeasibility`) → Riegel with a **volume-tiered**
+  exponent (1.06/1.09/1.12 by weekly hours, Vickers & Vertosick 2016), confidence-floored rather
+  than rejected on wide extrapolation, returned as a full `Estimate`.
+- **Critical Swim Speed** (`fitCriticalSwimSpeed`) → `CSS = (400−200)/(T400−T200)` from a
+  200m/400m pair, with a pacing-consistency check and its own `css_test` (0.65) provenance tier.
 
-- **Race date** → derive plan length from it, with a minimum-viable-window warning.
-- **Baseline ability per sport** (longest continuous run/ride in minutes, longest swim in metres,
-  current sessions/week and weekly hours) → derives `startingLoad`, gates readiness to start, and
-  seeds the week-1 long-session cap that G2 currently can't check.
-- **Goal time** → feasibility verdict + race-pace targets, via Riegel *with* an explicit
-  correction (it underpredicts recreational marathons by 10 min+; first-timers need a 3–5%
-  buffer) and returned as an `Estimate` with confidence, never a bare number.
-- **Critical Swim Speed** `CSS = (400 − 200) / (T400 − T200)` — swimming is the weakest sport in
-  the engine; there is no CSS estimator and no swim field test.
+**Still open (§2.5 of the review, not built):** the heat-trigger margin constant, and a
+swim-specific microcycle template (research showed beginners run 3 swims/week — technique,
+endurance, short intensity — while the engine currently treats swim as generic aerobic fill).
+
+**Also still open:** none of this is wired into `apps/web` onboarding yet — it's engine-layer,
+100%-covered functions waiting for a UI.
 
 Useful vault links: `#endurance-training`, `#periodisation`, `#hrv`, `#critical-power`,
 `#critical-swim-speed`, `#riegel`, `#durability`, `#guardrails`.
@@ -142,3 +164,6 @@ Useful vault links: `#endurance-training`, `#periodisation`, `#hrv`, `#critical-
 - Golden fixtures live in `supabase/seed/fixtures/*.json` and are contract tests.
 - Any deviation from the spec is logged in `DECISIONS.md`.
 - Commands: `pnpm test:physio`, `pnpm --filter @ironflow/core test:coverage`, `pnpm typecheck`.
+- Research: `scripts/perplexity_query.py "question"` — stdlib-only OpenRouter/Perplexity caller
+  (no `litellm`; that pulled in a Rust toolchain build for one HTTP POST). Needs
+  `OPENROUTER_API_KEY` in the environment.

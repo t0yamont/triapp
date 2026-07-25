@@ -14,6 +14,7 @@ import {
   COMPLETION_LOW_FRAC,
   COMPLETION_LOW_TARGET_BUMP,
   COMPLETION_LOW_WEEKS,
+  DISTRIBUTION_ROLLING_WEEKS,
   DISTRIBUTION_TOLERANCE,
   HR_PACE_DRIFT_FRAC,
   HR_PACE_DRIFT_WEEKS,
@@ -61,6 +62,65 @@ export interface WeeklyReplanContext {
   bodyMassExplained?: boolean;
   /** §11 durability index trending worse while fitness rises. */
   durabilityWorsening?: boolean;
+}
+
+/** One completed training week, as the athlete actually trained it. Oldest first. */
+export interface ReplanWeekSummary {
+  /** ISO date of the week's Monday. */
+  weekStart: string;
+  /** What the plan asked for. */
+  plannedLoad: number;
+  /** What was actually completed. */
+  completedLoad: number;
+  /** Minutes actually spent in each accounting zone — summed, not averaged, so several
+   * weeks can be combined without a weighting choice. */
+  zoneMinutes: Record<SZone, number>;
+  /** True if any day that week fell below the SWC band (§10.1). */
+  readinessFlagged: boolean;
+}
+
+/**
+ * Assemble the §10.3 context from weeks the athlete has actually trained.
+ *
+ * Every field this cannot know is left **undefined** rather than defaulted, because
+ * `weeklyReplan` reads undefined as "no evidence" and simply doesn't fire that trigger.
+ * Defaulting (say, `hrAtPaceChangeFrac: 0`) would instead assert "measured, and unchanged" —
+ * evidence the athlete never provided. The triggers needing ingested activity data
+ * (`hrAtPaceChangeFrac`, `durabilityWorsening`) and body mass therefore stay silent until
+ * something real supplies them.
+ */
+export function buildReplanContext(
+  weeks: readonly ReplanWeekSummary[],
+  distributionTarget?: Distribution,
+): WeeklyReplanContext {
+  const completionByWeek = weeks.map((w) => (w.plannedLoad > 0 ? w.completedLoad / w.plannedLoad : 0));
+  const last = weeks[weeks.length - 1];
+
+  // Trailing run of weeks with no readiness flag — "stable" means recently and continuously so.
+  let readinessStableWeeks = 0;
+  for (let i = weeks.length - 1; i >= 0; i--) {
+    if (weeks[i]!.readinessFlagged) break;
+    readinessStableWeeks += 1;
+  }
+
+  const recent = weeks.slice(-DISTRIBUTION_ROLLING_WEEKS);
+  const totals = ZONES.reduce(
+    (acc, z) => ({ ...acc, [z]: recent.reduce((a, w) => a + w.zoneMinutes[z], 0) }),
+    {} as Record<SZone, number>,
+  );
+  const totalMinutes = ZONES.reduce((a, z) => a + totals[z], 0);
+  const rolling3wkDistribution =
+    recent.length === DISTRIBUTION_ROLLING_WEEKS && totalMinutes > 0
+      ? (Object.fromEntries(ZONES.map((z) => [z, Math.round((totals[z] / totalMinutes) * 100)])) as Distribution)
+      : undefined;
+
+  return {
+    completionByWeek,
+    actualLoadLastWeek: last?.completedLoad ?? 0,
+    readinessFlaggedWeeks: weeks.filter((w) => w.readinessFlagged).length,
+    readinessStableWeeks,
+    ...(rolling3wkDistribution && distributionTarget ? { rolling3wkDistribution, distributionTarget } : {}),
+  };
 }
 
 const audit = (reasonCode: string, reasonText: string): PlanMutation => ({

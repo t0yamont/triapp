@@ -1,3 +1,5 @@
+'use client';
+
 import { Card } from '@ironflow/ui';
 import { buildAnalyticsView } from '../../../lib/analytics-demo';
 import { FormChart } from '../../../components/analytics/FormChart';
@@ -5,6 +7,7 @@ import { TsbCard } from '../../../components/analytics/TsbCard';
 import { DistributionCard } from '../../../components/analytics/DistributionCard';
 import { DecouplingCard } from '../../../components/analytics/DecouplingCard';
 import { ReplanCard } from '../../../components/analytics/ReplanCard';
+import { useLiveReplan } from '../../../lib/live-replan';
 
 function StatTile({ label, value, sub, tone = 'text-text' }: { label: string; value: string; sub: string; tone?: string }) {
   return (
@@ -18,6 +21,8 @@ function StatTile({ label, value, sub, tone = 'text-text' }: { label: string; va
 
 export default function AnalyticsPage() {
   const view = buildAnalyticsView();
+  // §10.3 evaluated against the athlete's own finished weeks when there are any.
+  const replan = useLiveReplan();
   const { current } = view;
   const tsb = Math.round(current.tsb);
   const tsbTone = tsb > 5 ? 'text-ok' : tsb < -10 ? 'text-warn' : 'text-accent-bright';
@@ -71,7 +76,14 @@ export default function AnalyticsPage() {
           trend={view.durability.trend}
           response={view.durability.response}
         />
-        <ReplanCard decisions={view.replan} />
+        <ReplanCard
+          decisions={replan.decisions ?? view.replan}
+          live={replan.decisions !== null}
+          applying={replan.applying}
+          applied={replan.applied}
+          error={replan.error}
+          onApply={replan.apply}
+        />
       </div>
 
       <p className="text-label text-faint">

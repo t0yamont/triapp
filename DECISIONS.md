@@ -599,3 +599,44 @@ so nothing is lost and the gap is visible in the data rather than only in code c
 **Audit.** `actor: 'engine'` — this is the system responding, not something the athlete asked
 for, and the reason code is the engine's own. A failed audit insert rolls the zone change back,
 as in `D-CALENDAR-PERSIST`.
+
+---
+
+## D-REPLAN-WIRING — §10.3 weekly re-planning, run against real training weeks
+
+**Status:** implemented (evaluation + audit; one action applied). **Spec:** §10.3.
+
+**What was missing.** `weeklyReplan` is a pure *decision* function and was fully tested, but
+nothing built its `WeeklyReplanContext` and nothing acted on its output — `ReplanCard` existed
+and rendered decisions from a hardcoded context in `analytics-demo.ts`. So §10.3 had never
+seen a real training week.
+
+**Undefined means "no evidence", and that is load-bearing.** `buildReplanContext` leaves
+`hrAtPaceChangeFrac`, `bodyMassChangeFrac` and `durabilityWorsening` **undefined** rather than
+defaulting them, because `weeklyReplan` reads undefined as "no evidence" and stays silent,
+while a default of `0` would assert *"measured, and unchanged"* — evidence the athlete never
+gave. Those three need ingested activity data, so 4 of the 6 triggers are reachable today and
+the other 2 correctly never fire. Explicitly tested.
+
+**Only finished weeks count.** A week still in progress always looks like under-completion and
+would trip `REPLAN_UNDERCOMPLETION` every time it was evaluated mid-week. `today` is passed in
+rather than read from a clock, so this stays testable.
+
+**Zone minutes are summed, not averaged.** The rolling 3-week distribution aggregates raw
+minutes across the window instead of averaging three percentages, which would silently weight a
+30-minute week equally with a 12-hour one.
+
+**Evaluate on load; apply only when asked.** Evaluating is a pure read and happens
+automatically. Applying writes to the plan, so it is an explicit athlete action — the same rule
+`D-READINESS-RESPONSE` established, for the same reason: a page that happens to be open must
+never rewrite the plan, and it would race with itself. §10.3 says these fire at the week
+boundary; doing that *automatically* belongs to the scheduled job
+(`supabase/migrations/…_scheduled_jobs.sql`), not to a mounted component. The card is explicit
+about the distinction — "what the weekly re-plan **would** change" until applied.
+
+**Applied vs recorded.** `reduce_weekly_target` is the one decision carrying a concrete number
+(`newWeeklyTarget`), so it rewrites the upcoming week's `plan_weeks.load_target`. The other
+five change how the *next week is generated*, and plan regeneration isn't wired — they are
+audited but not applied. Recording them keeps the reasoning in the data rather than losing it,
+and makes the gap visible where someone will actually see it. A failed audit insert rolls the
+target change back, as everywhere else.

@@ -40,6 +40,7 @@ export * from './plan/micro.js';
 export * from './plan/assemble.js';
 export * from './plan/generate.js';
 export * from './plan/reschedule.js';
+export * from './plan/actions.js';
 export * from './plan/fieldtest.js';
 export * from './plan/replan.js';
 

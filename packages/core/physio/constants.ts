@@ -127,6 +127,18 @@ export const DURABILITY_RACE_ESCALATION_WEEKS = 10; // long-course <10 wk from A
 export const HEAT_EXPOSURES_RANGE = [8, 14] as const;
 export const HEAT_EXPOSURE_MIN_MINUTES = 60;
 export const HEAT_BLOCK_END_DAYS_BEFORE_RACE = [5, 10] as const;
+// Passive post-session exposure (sauna / hot bath): 20–30 min, §7.4. Preferred because it
+// does not compromise prescribed training intensity.
+export const HEAT_PASSIVE_MINUTES = 25;
+
+// ── Strength — Eihara et al. 2022; Llanos-Lagos et al. 2024/2025; Zanini 2025 (§7.3) ─
+export const STRENGTH_SESSIONS_PER_WEEK = { base: 2, build: 2, peak: 1, taper: 1 } as const;
+export const STRENGTH_HEAVY_SETS = [3, 5] as const;
+export const STRENGTH_HEAVY_REPS = [4, 6] as const;
+export const STRENGTH_HEAVY_PCT_1RM = [0.8, 0.85] as const;
+export const STRENGTH_BUILD_VOLUME_REDUCTION = 0.25; // Build/Peak trim ~25% off Base volume
+export const STRENGTH_MIN_HOURS_FROM_KEY_AEROBIC = 6;
+export const STRENGTH_TAPER_LOCKOUT_DAYS = 10; // no strength inside the final 10 days
 
 // ── Intervals — Rønnestad & Hansen 2013 (bike); Fleckenstein et al. 2025 (run) ─
 // The sports genuinely diverge here; the engine must not share one template (§7.2).

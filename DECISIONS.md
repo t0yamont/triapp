@@ -323,3 +323,22 @@ re-plan changed" card.
 5. **"What the weekly re-plan changed" is wired to the real `weeklyReplan` (§10.3) engine call**,
    not the canvas's static placeholder flags — this surfaces previously-unused engine output
    (§10.3 was implemented in Phase 6 but had no UI consumer yet).
+
+---
+
+## D-HEAT-MARGIN — The heat-block trigger margin is a caller input, not an invented constant
+
+**Decision.** §7.4 prescribes a heat block when "a target race's expected wet-bulb conditions
+exceed the athlete's training-environment norm **by a defined margin**" — but the spec never
+defines that margin. Rather than invent a physiological threshold, `planHeatBlock` takes
+`triggerMarginC` as a required input, so the number is an explicit product decision made
+once, visibly, by the caller.
+
+**Reason.** CLAUDE.md is explicit: do not guess at physiology or at a constant. A plausible-looking
+default (say 4 °C) would be indistinguishable from a cited value once it sat in `constants.ts`,
+and would silently decide whether athletes get a heat block at all. Everything §7.4 *does*
+specify is implemented as cited constants: 8–14 exposures, finishing 5–10 days out, passive
+20–30 min preferred, active sessions at reduced intensity targets and never scored as
+under-performance.
+
+**Open question for the spec owner:** what margin (°C wet-bulb) should trigger a block?

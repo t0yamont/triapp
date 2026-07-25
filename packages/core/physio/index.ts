@@ -47,6 +47,8 @@ export * from './plan/replan.js';
 
 // Session templates (§7)
 export * from './sessions/library.js';
+export * from './sessions/strength.js';
+export * from './sessions/heat.js';
 
 // Durability — decoupling & its planning response (§11)
 export * from './durability/decoupling.js';

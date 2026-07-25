@@ -512,3 +512,53 @@ readiness downgrades), where nobody is watching to retry.
 **Not verified end-to-end.** The pure resolver is unit-tested and the whole path typechecks,
 but the actual Supabase round trip has not been exercised against a live database — no
 signed-in athlete with a persisted plan was available in this environment.
+
+---
+
+## D-WELLNESS-NORM — daily check-in, and the readiness history it needs
+
+**Status:** implemented. **Spec:** §10.1 (readiness score).
+
+**The missing link.** `readinessScore` takes rolling means and baselines, not raw
+observations, and §10.1 is emphatic: *"rolling means against a rolling baseline with an SWC
+band, never single-day values."* Nothing in the codebase turned stored daily rows into that
+shape, so readiness was unreachable from real data no matter what UI existed. That gap is now
+`readiness/history.ts::buildReadinessInputs` — pure, deterministic, 22 tests.
+
+**A check-in does not produce a score.** One morning of data can never be a readiness number;
+the score only exists once a baseline does. `readinessCoverage` reports how many days are
+logged and how many remain, so the UI can say "4 more days" instead of showing a confident
+number derived from nothing. Below the threshold, Today keeps the sample and labels it as
+sample.
+
+**Thin-data rules** (`READINESS_MIN_ROLLING_SAMPLES = 2`, `READINESS_MIN_BASELINE_SAMPLES = 7`).
+A one-value "rolling mean" is a single-day value, which §10.1 forbids, and an SD needs two
+points. A metric below threshold is reported absent and `readinessScore` reweights over what
+remains — the existing §10.1 behaviour, not new logic. A perfectly flat baseline (SD = 0) is
+also treated as absent: it yields z = 0 for every value, which is the absence of signal rather
+than evidence of normality.
+
+**Wellness direction is now fixed, and this is the part worth revisiting.** §10.1 lists the
+subjective inputs as "fatigue, soreness, stress, mood" on a 1–5 scale but never states which
+end is good, while `ReadinessInputs.wellness` is documented "higher is better". Averaging a
+mixed-direction scale would silently invert two of four inside the mean and quietly corrupt
+every wellness z-score. All four are therefore enforced as **higher = better** (5 = fresh,
+loose, calm, good mood), and the check-in UI labels each end explicitly so the athlete cannot
+answer on the opposite scale. If the spec intends fatigue/soreness/stress as severity scales,
+this must flip in both places at once — see [[Open Questions]].
+
+**The undefined baseline window.** §10.1 gives explicit windows for HRV and resting HR
+(7-day rolling, 60-day baseline) but says only "the athlete's own norm" for sleep and
+wellness. Rather than invent a third number, `SLEEP_BASELINE_DAYS` / `WELLNESS_BASELINE_DAYS`
+reuse the 60 days the spec does define. Flagged for sign-off, not silently adopted.
+
+**Storage.** `daily_metrics` already had every column, including `readiness_score`,
+`readiness_band` and `readiness_inputs` ("component breakdown, shown in UI") — no migration.
+The check-in is an upsert on `(athlete_id, date)`, so revising this morning updates the day
+rather than creating a second row. The derived readiness is stored alongside the raw inputs:
+it's the engine's verdict *for that day*, and recomputing 60 days of history on every read to
+redisplay it would be wasteful.
+
+**Not verified end-to-end.** The engine and mappers are unit-tested and the whole path
+typechecks, but no signed-in athlete has exercised the `daily_metrics` write against a live
+database — same caveat as `D-CALENDAR-PERSIST`.

@@ -123,6 +123,27 @@ export const TAPER_MAINTAIN_FREQUENCY = true;
 export const SWC_MULTIPLIER = 0.5;
 export const HRV_BASELINE_DAYS = 60;
 export const HRV_ROLLING_DAYS = 7;
+/** Resting HR: "7-day mean vs 60-day baseline" (§10.1 table) — same windows as HRV. */
+export const RHR_ROLLING_DAYS = 7;
+export const RHR_BASELINE_DAYS = 60;
+/** Sleep duration and subjective wellness: "3-day rolling" (§10.1 table). */
+export const SLEEP_ROLLING_DAYS = 3;
+export const WELLNESS_ROLLING_DAYS = 3;
+/**
+ * §10.1 compares sleep and wellness to "the athlete's own norm" but never says over what
+ * window. Set to the same 60 days the spec does define for HRV/RHR baselines rather than
+ * inventing a third number — see `D-WELLNESS-NORM` in DECISIONS.md; flagged for sign-off.
+ */
+export const SLEEP_BASELINE_DAYS = 60;
+export const WELLNESS_BASELINE_DAYS = 60;
+/**
+ * Fewest days in a window before it is trusted. A mean of one day is a single-day value,
+ * which §10.1 explicitly forbids ("never single-day values"), and an SD needs two points.
+ * A metric with less history than this is reported as absent, and `readinessScore`
+ * reweights over what remains rather than scoring a number it cannot stand behind.
+ */
+export const READINESS_MIN_ROLLING_SAMPLES = 2;
+export const READINESS_MIN_BASELINE_SAMPLES = 7;
 
 // ── Readiness response — asymmetric, downgrade-only (§10.2) ───────────────────
 // Thresholds transcribed from spec/03-ALGORITHM.md §10.2. REFERENCES.md §"Readiness /

@@ -11,6 +11,7 @@ import { isDuplicate, type ParsedActivity } from '@ironflow/core/ingest';
 import {
   COMPLETION_MATCH_WINDOW_DAYS,
   addDaysISO,
+  decouplingFromStreams,
   matchActivityToWorkout,
   type ActivityMatch,
   type PlanSport,
@@ -21,9 +22,30 @@ import type { Tables, TablesInsert } from '../types.js';
 
 // ── Pure mappers (unit-tested) ───────────────────────────────────────────────
 
+/**
+ * Aerobic decoupling for this session (§11), computed at ingest.
+ *
+ * This is the one load-adjacent column derivable without an athlete model: decoupling
+ * compares HR-to-intensity *within* the session, so it needs no threshold. TSS and TRIMP do
+ * need thresholds (CP/LT2/CSS, and HR zones from hrMax+hrRest), none of which are persisted
+ * yet — so those columns stay null rather than being filled with a guessed baseline.
+ *
+ * An invalid reading is stored, not discarded: the percentage is still evidence, and
+ * `decoupling_valid` is exactly how §11.1 says to mark it untrustworthy.
+ */
+export function toActivityDecoupling(a: ParsedActivity): { pct: number | null; valid: boolean } {
+  const result = a.streams
+    ? decouplingFromStreams(a.streams, { sport: a.sport, ambientRecorded: a.temperatureC !== undefined })
+    : null;
+  return result ? { pct: result.decouplingPct, valid: result.valid } : { pct: null, valid: false };
+}
+
 export function toActivityRow(athleteId: string, a: ParsedActivity): TablesInsert<'activities'> {
+  const decoupling = toActivityDecoupling(a);
   return {
     athlete_id: athleteId,
+    decoupling_pct: decoupling.pct,
+    decoupling_valid: decoupling.valid,
     sport: a.sport,
     sub_sport: a.subSport ?? null,
     start_time: a.startTime,

@@ -14,6 +14,9 @@ import {
   DURABILITY_RACE_ESCALATION_WEEKS,
 } from '../constants.js';
 
+/** The DB `sport` enum, which is a superset of the physio `Sport` (adds brick/strength/other). */
+export type IngestSportLike = 'run' | 'bike' | 'swim' | 'brick' | 'strength' | 'other';
+
 export interface HalfStats {
   meanHr: number;
   /** Mean external intensity — power (bike) or grade-adjusted speed (run). */

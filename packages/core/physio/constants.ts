@@ -190,6 +190,13 @@ export const FIELD_TEST_PHASE_TRANSITION_DEADLINE_DAYS = 7; // LT2 test at a pha
 export const DECOUPLING_TARGET_PCT = 5;
 export const DECOUPLING_MIN_SESSION_MIN = 75;
 export const DECOUPLING_MAX_INTENSITY_CV = 0.1; // intensity SD <10% within each half (§11.1)
+/**
+ * §11.1 invalidates a decoupling reading when there was "no long stop" but never says how
+ * long a stop must be to count. 120s is a convention, not physiology — long enough to ignore
+ * traffic lights and bottle stops, short enough to catch a real break that lets HR recover.
+ * Flagged for sign-off (`D-DECOUPLING-STOP`), like `D-HEAT-MARGIN`'s undefined margin.
+ */
+export const DECOUPLING_LONG_STOP_S = 120;
 export const DURABILITY_RACE_ESCALATION_WEEKS = 10; // long-course <10 wk from A race → escalate (§11.2)
 
 // ── Heat — Bayesian meta-regression, 211 papers (§7.4) ───────────────────────

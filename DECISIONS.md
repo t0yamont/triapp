@@ -682,3 +682,49 @@ in response (§10.2/§10.3) is audited, as it should be.
 **Failures don't lose data.** An activity that matches nothing is still stored — it is training
 either way, just not attributed. If the back-link write fails, the workout side is reverted so
 a workout never points at an activity that doesn't point back.
+
+---
+
+## D-DECOUPLING-STOP / D-ANALYTICS-LIVE — decoupling at ingest, Analytics on real data
+
+**Status:** implemented, with one deliberate limit. **Spec:** §11/§11.1, §5.2.
+
+**Only decoupling could be computed honestly.** The task was "load, zone and decoupling
+columns at ingest". Investigating first showed **most of that is blocked, and not by the
+ingest step**:
+
+| Column | Needs | Status |
+|---|---|---|
+| `decoupling_pct` / `decoupling_valid` | streams only — it's a within-session HR:intensity comparison | **Computed at ingest** |
+| `external_load` (TSS) | CP / LT2 speed / CSS | Blocked — no anchors persisted |
+| `internal_load` (TRIMP) | HR zones ⇒ `AthleteModel` ⇒ **hrMax *and* hrRest** | Blocked |
+| `time_in_s1_s`…`s3_s` | the same zones | Blocked |
+| `perceived_load` (sRPE) | an athlete-entered RPE | Blocked — nothing collects it |
+
+Nothing writes `athlete_anchors`, `athlete_zones` or `athlete_model_current` anywhere in the
+codebase. And `hrRest` has **no population formula in the spec at all** — that is the standing
+open question `D-HRREST-POP`. Filling TSS/TRIMP would therefore have required inventing a
+threshold, producing plausible numbers that are wrong in ways nobody notices — exactly what
+`00-AGENT-BRIEF` forbids. Those columns stay null.
+
+**`decouplingFromStreams`** (pure, 13 tests) turns per-sample HR + power/speed into the two
+halves `computeDecoupling` expects. Choices worth keeping: halves split by **elapsed time**,
+not sample count, so irregular sampling doesn't skew them; **zero-intensity samples are
+dropped**, because coasting would drag the second half's mean down and manufacture drift; and
+an invalid reading is **stored, not discarded** — the percentage is still evidence, and
+`decoupling_valid` is exactly how §11.1 says to mark it untrustworthy. Swim and strength
+return null rather than a meaningless ratio.
+
+**`D-DECOUPLING-STOP` — a new flagged convention.** §11.1 invalidates a reading when there was
+"no long stop" but never defines one. `DECOUPLING_LONG_STOP_S = 120` is a convention, not
+physiology: long enough to ignore traffic lights, short enough to catch a break that lets HR
+recover. Overridable per call. Flagged for sign-off like `D-HEAT-MARGIN`.
+
+**Analytics is now live where the data is real, and says where it isn't.** Decoupling is
+genuinely measured; distribution is genuinely the athlete's completed sessions, run through
+the same `isWithinTolerance`/`isModerateDrift` the sample uses so the verdicts can't diverge.
+**CTL/ATL/TSB are computed from the planned load of completed sessions**, because measured
+load needs the thresholds above. The shape and trend are right; the units are "what the plan
+asked for", not "what the body received" — so `loadBasis: 'planned_completed'` is carried
+through and the chart says so in plain words rather than implying measurement. Swap to
+`'measured'` the moment activities carry `internal_load`; `fitnessSeries` itself doesn't change.

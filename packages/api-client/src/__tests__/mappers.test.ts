@@ -4,10 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { readPublicEnv, readServiceEnv } from '../env.js';
 import { ingestRequestSchema, zoneSetSchema } from '../schemas.js';
 import { packInt16, toByteaHex } from '../streams.js';
+import { pacePer100m, toSportAnchors } from '../repositories/fieldTests.js';
 import {
   perceivedLoadFor,
   toActivityLoad,
   toActivityRow,
+  toSwimTss,
   toLapRows,
   toStreamRow,
 } from '../repositories/activities.js';
@@ -179,5 +181,101 @@ describe('ingest request schema', () => {
   });
   it('rejects a non-uuid athleteId', () => {
     expect(() => ingestRequestSchema.parse({ athleteId: 'x' })).toThrow();
+  });
+});
+
+describe('swim TSS, unlocked by a recorded CSS test', () => {
+  const swim = (over: Partial<ParsedActivity> = {}): ParsedActivity => ({
+    ...parsed,
+    sport: 'swim',
+    distanceM: 1500,
+    durationS: 1500, // 1.0 m/s
+    ...over,
+  });
+
+  it('scores a swim once CSS exists', () => {
+    const tss = toSwimTss(swim(), 1.0)!;
+    expect(tss).toBeGreaterThan(0);
+    // Swimming exactly at CSS ⇒ IF 1.0 ⇒ tss = duration/3600 × 100.
+    expect(tss).toBeCloseTo((1500 / 3600) * 100, 5);
+  });
+
+  it('stays null until a test has been recorded', () => {
+    expect(toSwimTss(swim(), null)).toBeNull();
+    expect(toActivityRow('a', swim()).external_load).toBeNull();
+  });
+
+  it('never scores a non-swim, which needs CP or threshold pace instead', () => {
+    expect(toSwimTss({ ...parsed, sport: 'bike' }, 1.0)).toBeNull();
+  });
+
+  it('needs a distance and a duration to have a speed at all', () => {
+    expect(toSwimTss(swim({ distanceM: undefined }), 1.0)).toBeNull();
+    expect(toSwimTss(swim({ durationS: 0, movingTimeS: 0 }), 1.0)).toBeNull();
+  });
+
+  it('prefers moving time over elapsed — rest at the wall is not swimming', () => {
+    const withRest = swim({ durationS: 3000, movingTimeS: 1500 });
+    expect(toSwimTss(withRest, 1.0)).toBeCloseTo(toSwimTss(swim(), 1.0)!, 5);
+  });
+
+  it('rejects a nonsensical CSS rather than dividing by it', () => {
+    expect(toSwimTss(swim(), 0)).toBeNull();
+    expect(toSwimTss(swim(), -1)).toBeNull();
+  });
+});
+
+describe('toSportAnchors — stored anchors → the model’s sports map', () => {
+  const row = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 'a1',
+      athlete_id: 'ath-1',
+      sport: 'swim',
+      anchor_type: 'css',
+      value_numeric: '1.15',
+      value_json: null,
+      unit: 'm/s',
+      confidence: '0.65',
+      provenance: 'css_test',
+      sample_size: 2,
+      source_activity_ids: null,
+      measured_at: '2026-07-26T09:00:00.000Z',
+      superseded_at: null,
+      created_at: '2026-07-26T09:00:00.000Z',
+      ...over,
+    }) as never;
+
+  it('maps a CSS anchor onto the sport’s criticalIntensity (§6.3)', () => {
+    const sports = toSportAnchors([row()]);
+    expect(sports.swim?.criticalIntensity).toEqual({
+      value: 1.15, // numeric arrives as a string from Postgres
+      confidence: 0.65,
+      provenance: 'css_test',
+      measuredAt: '2026-07-26T09:00:00.000Z',
+    });
+  });
+
+  it('keeps the newest anchor when several exist for one sport', () => {
+    const sports = toSportAnchors([row({ value_numeric: '1.30' }), row({ value_numeric: '1.10' })]);
+    expect(sports.swim?.criticalIntensity?.value).toBe(1.3); // rows arrive newest first
+  });
+
+  it('treats CP and CS as the same concept, per sport', () => {
+    const sports = toSportAnchors([
+      row({ sport: 'bike', anchor_type: 'critical_power', value_numeric: '265', unit: 'W' }),
+    ]);
+    expect(sports.bike?.criticalIntensity?.value).toBe(265);
+  });
+
+  it('ignores anchors that are not a critical intensity, or have no value', () => {
+    expect(toSportAnchors([row({ anchor_type: 'hr_max', sport: null })])).toEqual({});
+    expect(toSportAnchors([row({ value_numeric: null })])).toEqual({});
+  });
+});
+
+describe('pacePer100m', () => {
+  it('converts a speed into the pace a swim set is written in', () => {
+    expect(pacePer100m(1.0)).toBe(100); // 1 m/s ⇒ 1:40 per 100 m
+    expect(pacePer100m(1.25)).toBe(80); // ⇒ 1:20
   });
 });

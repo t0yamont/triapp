@@ -41,6 +41,154 @@ const repeat = (count: number, steps: WorkoutElement[]): Repeat => ({ kind: 'rep
 const WARMUP = step('warmup', 900, 'S1');
 const COOLDOWN = step('cooldown', 600, 'S1');
 
+const SEC_PER_MIN = 60;
+
+/**
+ * Canonical warm-up/cool-down, shrunk to fit a short session.
+ *
+ * 15 minutes of warm-up inside a 30-minute session leaves no session. They are capped at a
+ * share of the whole so a short slot still gets a proportionate opening and closing rather
+ * than an absurd one.
+ */
+const PREAMBLE_MAX_FRACTION = 0.45;
+
+function bookends(totalSec: number): { warmup: Step; cooldown: Step; workSec: number } {
+  const canonical = WARMUP.durationSec + COOLDOWN.durationSec;
+  const budget = Math.min(canonical, Math.floor(totalSec * PREAMBLE_MAX_FRACTION));
+  const warmupSec = Math.round((budget * WARMUP.durationSec) / canonical);
+  return {
+    warmup: step('warmup', warmupSec, 'S1'),
+    cooldown: step('cooldown', budget - warmupSec, 'S1'),
+    workSec: totalSec - budget,
+  };
+}
+
+/** Total seconds a structure prescribes — `repeat` counts its children `count` times. */
+export function structureDurationSec(steps: readonly WorkoutElement[]): number {
+  return steps.reduce(
+    (total, el) => total + (el.kind === 'step' ? el.durationSec : el.count * structureDurationSec(el.steps)),
+    0,
+  );
+}
+
+export interface SessionSpec {
+  sport: PlanSport;
+  purpose: SessionPurpose;
+  goalZone: SZone;
+  /** The slot the planner allocated. The rendered structure must fill exactly this. */
+  durationMin: number;
+}
+
+/** Stable identifier for the template a workout was rendered from (`workouts.template_id`). */
+export function sessionTemplateId(spec: Pick<SessionSpec, 'sport' | 'purpose'>): string {
+  return `${spec.sport}-${spec.purpose}`;
+}
+
+/**
+ * Fit whole repetitions of a sport's own interval format into the work budget (§7.2, F13).
+ *
+ * The **format** is the physiological claim and is never rescaled — 30/15 for the bike,
+ * 3–4 min for the run — because that divergence is the entire point of F13. What flexes is
+ * the number of repetitions, since the planner's slot (`S3_CAP_MIN` is 40 min) is often
+ * shorter than the canonical session. At least one repetition is always rendered: a quality
+ * session too short for a single rep is a planning bug, not something to paper over here.
+ */
+function fitReps(workSec: number, repSec: number, canonicalReps: number): number {
+  return Math.max(1, Math.min(canonicalReps, Math.floor(workSec / repSec)));
+}
+
+/**
+ * A concrete session, rendered to exactly the duration the planner allocated.
+ *
+ * This is what `plan/micro.ts` assigns a purpose to and `plan/generate.ts` attaches to every
+ * scheduled workout, so a persisted plan carries real structure instead of
+ * `{ kind: 'steady' }`. Every branch returns a structure whose total equals `durationMin`
+ * exactly — the persisted `planned_duration_min` drives load and the guardrails, so a
+ * structure that disagreed with it would be two contradictory numbers for one session.
+ */
+export function renderSession(spec: SessionSpec): WorkoutStructure {
+  const { sport, purpose, goalZone } = spec;
+  const totalSec = spec.durationMin * SEC_PER_MIN;
+  const base = { sport, purpose, goalZone };
+
+  if (purpose === 'vo2max') return fitVo2max(spec, totalSec);
+  if (purpose === 'durability') return renderDurability(spec, totalSec);
+
+  // aerobic_volume, recovery, technique and anything the planner doesn't yet emit: one
+  // continuous effort at the goal zone. Deliberately not embellished — an easy run is an easy
+  // run, and inventing structure for it would be inventing a prescription.
+  return { ...base, steps: [step('steady', totalSec, goalZone)] };
+}
+
+function fitVo2max(spec: SessionSpec, totalSec: number): WorkoutStructure {
+  const { sport } = spec;
+  const base = { sport, purpose: 'vo2max' as SessionPurpose, goalZone: 'S3' as SZone };
+  const { warmup, cooldown, workSec } = bookends(totalSec);
+
+  if (sport === 'bike') {
+    const { work, rest, reps, sets, setRest } = BIKE_VO2_SHORT;
+    // Try to keep the set structure; drop to a single set when the slot can't hold two.
+    const perSet = reps * (work + rest) + setRest;
+    const setCount = Math.max(1, Math.min(sets, Math.floor(workSec / perSet)));
+    const repCount = fitReps(Math.floor(workSec / setCount) - setRest, work + rest, reps);
+    const used = setCount * (repCount * (work + rest) + setRest);
+    return {
+      ...base,
+      steps: [
+        warmup,
+        repeat(setCount, [repeat(repCount, [step('work', work, 'S3'), step('recovery', rest, 'S1')]), step('recovery', setRest, 'S1')]),
+        step('cooldown', cooldown.durationSec + (workSec - used), 'S1'),
+      ],
+    };
+  }
+
+  if (sport === 'run') {
+    const workSecPerRep = Math.round(((RUN_VO2_LONG.workMin + RUN_VO2_LONG.workMax) / 2) * SEC_PER_MIN);
+    const recoverySec = Math.round(workSecPerRep * RUN_VO2_LONG.recoveryRatio);
+    const repCount = fitReps(workSec, workSecPerRep + recoverySec, RUN_VO2_LONG.reps[0] + 1);
+    const used = repCount * (workSecPerRep + recoverySec);
+    return {
+      ...base,
+      steps: [
+        warmup,
+        repeat(repCount, [step('work', workSecPerRep, 'S3'), step('recovery', recoverySec, 'S1')]),
+        step('cooldown', cooldown.durationSec + (workSec - used), 'S1'),
+      ],
+    };
+  }
+
+  // Swim: 10 × 100 m at CSS pace with short rest (§7.2).
+  const repCount = fitReps(workSec, 110, 10);
+  const used = repCount * 110;
+  return {
+    ...base,
+    steps: [
+      warmup,
+      repeat(repCount, [step('work', 90, 'S3'), step('recovery', 20, 'S1')]),
+      step('cooldown', cooldown.durationSec + (workSec - used), 'S1'),
+    ],
+  };
+}
+
+/**
+ * A long session with race-intensity work in its **final third** (§7.2, §11).
+ *
+ * Not decoration: this is where durability is built and measured at the same time, because
+ * the decoupling reading (§11.1) compares the session's two halves. Putting the harder block
+ * early would manufacture drift; putting it last is the point.
+ */
+function renderDurability(spec: SessionSpec, totalSec: number): WorkoutStructure {
+  const base = { sport: spec.sport, purpose: 'durability' as SessionPurpose, goalZone: spec.goalZone };
+  const blockSec = Math.round(totalSec / 3);
+  return {
+    ...base,
+    steps: [
+      step('steady', totalSec - blockSec, 'S1'),
+      step('work', blockSec, 'S2'),
+    ],
+  };
+}
+
 /**
  * Sport-specific VO2max session (§7.2). Bike: 3×13×(30/15). Run: 4–6×3–4 min. Swim: 10×100.
  * The sports deliberately do not share an interval template (F13).

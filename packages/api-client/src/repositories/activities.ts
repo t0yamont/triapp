@@ -15,6 +15,7 @@ import {
   matchActivityToWorkout,
   rollupToSZones,
   srpe,
+  swimTss,
   timeInZones,
   trimp,
   type ActivityMatch,
@@ -25,6 +26,7 @@ import type { TriflowClient } from '../client.js';
 import { packFloat32, packInt16, packLatLng, toByteaHex } from '../streams.js';
 import type { Tables, TablesInsert } from '../types.js';
 import { getZoneSetForSport } from './athleteModel.js';
+import { getCriticalSwimSpeed } from './fieldTests.js';
 
 const SECONDS_PER_MINUTE = 60;
 
@@ -34,9 +36,9 @@ const SECONDS_PER_MINUTE = 60;
  * Aerobic decoupling for this session (§11), computed at ingest.
  *
  * This needs no athlete model at all: decoupling compares HR-to-intensity *within* the
- * session, so it needs no threshold. TRIMP does need zones, which now exist — see
- * `toActivityLoad`. TSS still needs CP/CS/CSS, which no field test has produced yet, so
- * `external_load` stays null rather than being filled with a guessed threshold.
+ * session, so it needs no threshold. TRIMP needs zones (`toActivityLoad`) and swim TSS needs a
+ * recorded CSS test (`toSwimTss`); bike and run TSS still have no anchor, so `external_load`
+ * stays null for them rather than being filled with a guessed threshold.
  *
  * An invalid reading is stored, not discarded: the percentage is still evidence, and
  * `decoupling_valid` is exactly how §11.1 says to mark it untrustworthy.
@@ -81,14 +83,34 @@ export function toActivityLoad(
   };
 }
 
+/**
+ * Swim TSS (§5.1), the one external-load path that a single field test unlocks.
+ *
+ * Needs CSS, which only a 200/400 time trial produces (§6.3 fits bike/run critical intensity
+ * passively from mean-max efforts, but ships no swim estimator). Null until the athlete records
+ * one — see `recordCssTest`.
+ *
+ * ⚠️ The value inherits `D-SWIM-IF`: §5.1 defines swim `IF = CSS / actual`, so swimming *easier*
+ * than CSS inflates the score. Implemented spec-literal and flagged; if that open question
+ * resolves the other way, this number changes with it.
+ */
+export function toSwimTss(a: ParsedActivity, cssSpeed: number | null): number | null {
+  if (a.sport !== 'swim' || cssSpeed === null || cssSpeed <= 0) return null;
+  const seconds = a.movingTimeS ?? a.durationS;
+  if (!a.distanceM || seconds <= 0) return null;
+  return swimTss({ durationS: seconds, cssSpeed, actualSpeed: a.distanceM / seconds }).tss;
+}
+
 export function toActivityRow(
   athleteId: string,
   a: ParsedActivity,
   zoneSet: ZoneSet | null = null,
+  cssSpeed: number | null = null,
 ): TablesInsert<'activities'> {
   const decoupling = toActivityDecoupling(a);
   return {
     athlete_id: athleteId,
+    external_load: toSwimTss(a, cssSpeed),
     ...toActivityLoad(a, zoneSet),
     decoupling_pct: decoupling.pct,
     decoupling_valid: decoupling.valid,
@@ -198,10 +220,11 @@ async function insertActivity(
   athleteId: string,
   a: ParsedActivity,
   zoneSet: ZoneSet | null,
+  cssSpeed: number | null,
 ): Promise<string> {
   const { data, error } = await client
     .from('activities')
-    .insert(toActivityRow(athleteId, a, zoneSet))
+    .insert(toActivityRow(athleteId, a, zoneSet, cssSpeed))
     .select('id')
     .single();
   if (error || !data) throw new Error(`ingest: insert activity failed: ${error?.message}`);
@@ -241,11 +264,13 @@ export async function upsertParsedActivity(
   }
 
   // 2. Cross-provider dedup (§7), and the zones this session's HR is binned into (§3.4/§5.1).
-  const [dup, zoneSet] = await Promise.all([
+  const [dup, zoneSet, cssSpeed] = await Promise.all([
     findDuplicatePrimary(client, athleteId, a),
     getZoneSetForSport(client, athleteId, a.sport),
+    // Only a swim can use it; fetching unconditionally keeps this one round trip either way.
+    a.sport === 'swim' ? getCriticalSwimSpeed(client, athleteId) : Promise.resolve(null),
   ]);
-  const newId = await insertActivity(client, athleteId, a, zoneSet);
+  const newId = await insertActivity(client, athleteId, a, zoneSet, cssSpeed);
   if (!dup) return { activityId: newId, outcome: 'inserted' };
 
   // 3. Keep the richer record as primary; mark the other as a duplicate. Never hard-delete.

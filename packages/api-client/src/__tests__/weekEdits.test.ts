@@ -104,9 +104,9 @@ describe('resolveWeekEdits', () => {
       isRecoveryWeek: false,
       hoursCeiling: 12,
       sessions: [
-        { dayOfWeek: 2, sport: 'bike', sZone: 'S1', durationMin: 60, isHard: false, load: 45 },
-        { dayOfWeek: 4, sport: 'run', sZone: 'S3', durationMin: 60, isHard: true, load: 90 },
-        { dayOfWeek: 6, sport: 'bike', sZone: 'S1', durationMin: 180, isHard: false, load: 140 },
+        { dayOfWeek: 2, sport: 'bike', sZone: 'S1', purpose: 'aerobic_volume', durationMin: 60, isHard: false, load: 45 },
+        { dayOfWeek: 4, sport: 'run', sZone: 'S3', purpose: 'vo2max', durationMin: 60, isHard: true, load: 90 },
+        { dayOfWeek: 6, sport: 'bike', sZone: 'S1', purpose: 'durability', durationMin: 180, isHard: false, load: 140 },
       ],
     };
     const rows = [row('bike-tue', 'bike', 2), row('run-thu', 'run', 4), row('bike-sat', 'bike', 6)];

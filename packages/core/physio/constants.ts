@@ -348,3 +348,24 @@ export const TAPER_TABLE = {
 // ── Progression guardrails not already above (§5.3) ──────────────────────────
 export const MAX_CONSECUTIVE_HARD_DAYS_CROSS_SPORT = 3; // never 3 across sports (G5)
 export const RAMP_CAP_APPLIED_REASON = 'RAMP_CAP_APPLIED'; // machine-readable (F8, P1)
+
+// ── Degradation: prescribing without sensors (§14) ───────────────────────────
+
+/**
+ * RPE band per 3-zone bucket, on the CR10 scale (Foster et al. 2001 — REFERENCES.md).
+ *
+ * ⚠️ **CONVENTION, NOT PHYSIOLOGY — flagged for sign-off (`D-RPE-BANDS`).** The scale itself is
+ * cited; §14 says to "use HR and RPE" when there is no power meter and to prescribe swims "by
+ * RPE", but ==the spec never states which RPE corresponds to which zone==. These edges follow
+ * Foster's verbal anchors (3 moderate, 5 hard, 7 very hard, 10 maximal) mapped onto the
+ * LT1/LT2 boundaries the S-zones already encode. They are conservative at the top: S3 starts at
+ * 8, not 7, so an athlete steering by feel under-shoots rather than over-shoots the hardest work.
+ *
+ * Same posture as `DECOUPLING_LONG_STOP_S`: the engine needs a number to prescribe anything at
+ * all, so it uses a documented one and says loudly that it is a convention.
+ */
+export const RPE_BY_SZONE = {
+  S1: { lo: 2, hi: 4 }, // below LT1 — "easy" to "somewhat hard"
+  S2: { lo: 5, hi: 7 }, // LT1–LT2 — "hard" to "very hard"
+  S3: { lo: 8, hi: 10 }, // above LT2 — beyond "very hard"
+} as const;

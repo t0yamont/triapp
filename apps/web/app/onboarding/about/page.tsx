@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { NotConnectedBanner } from '../../../components/NotConnectedBanner';
+import { useSkipOnboardingIfPlanned } from '../../../lib/post-auth';
 import { supabaseConfigured, useSupabase } from '../../../lib/supabase';
 
 const CONSENT_VERSION = 'v1';
@@ -25,6 +26,10 @@ type FormValues = z.infer<typeof schema>;
 export default function AboutPage() {
   const supabase = useSupabase();
   const router = useRouter();
+  // Every authenticated path lands here — including OAuth, whose redirect URL is fixed before
+  // anyone has logged in, and bookmarks. An athlete who already has a plan is sent to the app
+  // instead of being asked for their details again. See `lib/post-auth.ts`.
+  const { checking } = useSkipOnboardingIfPlanned();
   const [serverError, setServerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const {
@@ -64,6 +69,16 @@ export default function AboutPage() {
       return;
     }
     router.push('/onboarding/availability');
+  }
+
+  // Hold the form back for the one round trip it takes to find out. Rendering "About you" and
+  // then redirecting looks identical to the bug this guard fixes.
+  if (checking) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-16">
+        <p className="text-body text-faint">Checking your account…</p>
+      </main>
+    );
   }
 
   return (

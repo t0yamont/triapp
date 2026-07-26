@@ -64,7 +64,10 @@ function syntheticAthletes(): Athlete[] {
         course,
         availability,
         startingLoad: 200 + i * 20, // 200..580
-        confidence: 0.3 + (i % 7) * 0.1, // 0.30..0.90 — spans every §2.4 tier
+        // 0.15..0.90 — spans every §2.4 tier *including* the critical one. It previously
+        // started at 0.30, so no synthetic athlete ever sat below the I15 threshold and the
+        // cohort was structurally blind to an unenforced intensity ceiling.
+        confidence: i % 8 === 0 ? 0.15 + (i % 3) * 0.05 : 0.3 + (i % 7) * 0.1,
         trainingAgeYears: i % 5 === 0 ? 0.5 : 1 + (i % 9), // some novices (tighter G1 cap)
         startDate: '2026-08-03', // a Monday
         ...(i % 4 === 0 ? { shortLoadingCycle: true } : {}), // 2:1 loading for some
@@ -155,6 +158,33 @@ describe('Phase-8 gate — simulated season across 20 synthetic athletes', () =>
         expect(trainable.has(w.dayOfWeek), `${a.id} ${w.scheduledDate}`).toBe(true);
       }
     }
+  });
+
+  it('prescribes no S3 to an athlete whose anchors are barely known (I15)', () => {
+    const underInformed = athletes.filter((a) => a.input.confidence < 0.3);
+    expect(underInformed.length).toBeGreaterThan(0); // the cohort must actually cover this tier
+
+    for (const a of underInformed) {
+      for (const w of generatePlan(a.input).workouts) {
+        expect(w.sZone, `${a.id} ${w.scheduledDate} — ${w.name}`).not.toBe('S3');
+      }
+    }
+  });
+
+  it('halves the S3 volume cap for a partially-known athlete (§2.4 z5VolumeFraction)', () => {
+    const low = athletes.filter((a) => a.input.confidence >= 0.3 && a.input.confidence < 0.5);
+    const high = athletes.filter((a) => a.input.confidence >= 0.75);
+    if (low.length === 0 || high.length === 0) return;
+
+    const s3Share = (a: (typeof athletes)[number]): number => {
+      const ws = generatePlan(a.input).workouts;
+      const total = ws.reduce((acc, w) => acc + w.durationMin, 0);
+      const s3 = ws.filter((w) => w.sZone === 'S3').reduce((acc, w) => acc + w.durationMin, 0);
+      return total > 0 ? s3 / total : 0;
+    };
+    const lowMean = low.reduce((acc, a) => acc + s3Share(a), 0) / low.length;
+    const highMean = high.reduce((acc, a) => acc + s3Share(a), 0) / high.length;
+    expect(lowMean).toBeLessThan(highMean);
   });
 
   it('leaves at least one rest day a week, two in recovery weeks (I17)', () => {

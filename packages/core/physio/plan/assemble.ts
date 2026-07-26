@@ -54,6 +54,8 @@ export function assemblePlan(input: PlanInput): PlanWeekResult[] {
       isRecoveryWeek: mw.isRecoveryWeek,
       loadTarget,
       availability,
+      // §2.4 governs intensity as well as ramp rate — see `MicroInput.confidence` (I15).
+      confidence,
       ...(priorWeekLoad !== undefined ? { priorWeekLoad } : {}),
     });
     actual.push(week.sessions.reduce((a, s) => a + s.load, 0));

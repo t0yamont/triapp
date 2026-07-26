@@ -5,9 +5,6 @@ import {
   toPlanWeekRow,
   toTrainingPlanRow,
   toWorkoutRow,
-  workoutName,
-  workoutPurpose,
-  workoutTemplateId,
   type GeneratedPlanMeta,
 } from '../repositories/plans.js';
 
@@ -80,23 +77,31 @@ describe('plan row mappers', () => {
     expect(row.planned_duration_min).toBe(hardWorkout.durationMin);
     expect(row.planned_load).toBe(hardWorkout.load);
     expect(row.scheduled_date).toBe(hardWorkout.scheduledDate);
-    expect(row.structure).toMatchObject({ kind: 'intervals' });
+    // Was `{ kind: 'intervals' }` — a placeholder. Now the real §7.2 render.
+    expect(row.structure).toMatchObject({ sport: hardWorkout.sport, purpose: 'vo2max', goalZone: 'S3' });
   });
 
   it('materialises an easy session into an aerobic workout', () => {
     const row = toWorkoutRow('a', 'p', 'w', easyWorkout);
-    expect(row.purpose).toBe('aerobic_volume');
+    expect(row.purpose).toBe(easyWorkout.purpose);
     expect(row.is_key_session).toBe(false);
-    expect(row.structure).toMatchObject({ kind: 'steady' });
+    expect(row.structure).toMatchObject({ sport: easyWorkout.sport, goalZone: easyWorkout.sZone });
   });
 
-  it('derives stable name / purpose / template id per intensity', () => {
-    expect(workoutPurpose(hardWorkout)).toBe('vo2max');
-    expect(workoutPurpose(easyWorkout)).toBe('aerobic_volume');
-    expect(workoutName(hardWorkout)).toMatch(/intervals$/);
-    expect(workoutName(easyWorkout)).toMatch(/aerobic$/);
-    expect(workoutTemplateId(hardWorkout)).toMatch(/\.key$/);
-    expect(workoutTemplateId(easyWorkout)).not.toMatch(/\.key$/);
+  // Name/purpose/template/structure are the engine's now (§7, `sessions/library.ts`); this
+  // mapper only has to carry them through without editorialising.
+  it('carries the engine-rendered template through untouched', () => {
+    const row = toWorkoutRow('a', 'p', 'w', hardWorkout);
+    expect(row.name).toBe(hardWorkout.name);
+    expect(row.purpose).toBe(hardWorkout.purpose);
+    expect(row.template_id).toBe(hardWorkout.templateId);
+    expect(row.structure).toEqual(hardWorkout.structure);
+  });
+
+  it('renders a real interval structure for a quality session, not a placeholder', () => {
+    const row = toWorkoutRow('a', 'p', 'w', hardWorkout);
+    const structure = row.structure as unknown as { steps: { kind: string }[] };
+    expect(structure.steps.some((el) => el.kind === 'repeat')).toBe(true);
   });
 
   it('round-trips: every scheduled session survives write → read unchanged', () => {
@@ -106,7 +111,7 @@ describe('plan row mappers', () => {
         dayOfWeek: sw.dayOfWeek,
         sport: sw.sport,
         sZone: sw.sZone,
-        purpose: sw.isHard ? 'vo2max' : 'aerobic_volume',
+        purpose: sw.purpose,
         durationMin: sw.durationMin,
         load: sw.load,
         isHard: sw.isHard,

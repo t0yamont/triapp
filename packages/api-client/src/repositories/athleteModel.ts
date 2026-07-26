@@ -24,6 +24,7 @@ import {
   type ZoneSet,
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
+import { getCurrentAnchors, toSportAnchors } from './fieldTests.js';
 import type { Json } from '../database.types.js';
 import { zoneSetSchema } from '../schemas.js';
 import type { Enums, Tables } from '../types.js';
@@ -57,7 +58,7 @@ export async function deriveAthleteModel(
 ): Promise<DerivedAthleteModel | null> {
   const today = now.slice(0, 10);
 
-  const [{ data: profile }, { data: daily }] = await Promise.all([
+  const [{ data: profile }, { data: daily }, anchorRows] = await Promise.all([
     client.from('profiles').select('date_of_birth').eq('id', athleteId).maybeSingle(),
     client
       .from('daily_metrics')
@@ -67,6 +68,9 @@ export async function deriveAthleteModel(
       .lte('date', today)
       .not('resting_hr', 'is', null)
       .order('date', { ascending: false }),
+    // Threshold anchors a field test produced (§6.3). Without this the capture screen would
+    // write a row nobody reads — the exact dead end this repo keeps re-creating.
+    getCurrentAnchors(client, athleteId),
   ]);
 
   // §2.3 reads morning HR as the athlete's own recent readings, newest first.
@@ -81,6 +85,7 @@ export async function deriveAthleteModel(
       ...(morningReadings.length > 0 ? { morningReadings } : {}),
       now,
     },
+    sports: toSportAnchors(anchorRows),
     now,
   });
   if (!built) return null;

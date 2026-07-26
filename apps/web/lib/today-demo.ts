@@ -37,6 +37,9 @@ export interface PlannedSession {
   targetRows: TargetRow[];
   /** Confidence of the anchor the targets are derived from (§2.4). */
   targetsConfidence: number;
+  /** What the targets are anchored to, in the athlete's words — pairs with `targetsConfidence`
+   *  so the confidence dot never floats without an explanation (§2.4, P2). */
+  targetsNote: string;
   intervals: SessionInterval[];
 }
 
@@ -125,6 +128,7 @@ const PLANNED_SESSION: PlannedSession = {
     { label: 'Cool-down', value: '12m · 150–170 W', zone: 'S1' },
   ],
   targetsConfidence: 0.72,
+  targetsNote: 'Watts from your ramp test, 34 days ago',
   // 3 × 13 × (30s hard / 15s easy) rolled up to block level for the shape bar (§7.1).
   intervals: [
     { minutes: 12, zone: 'S1' },

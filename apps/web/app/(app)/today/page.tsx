@@ -1,5 +1,6 @@
 'use client';
 
+import type { AdaptationResult } from '@ironflow/core/physio';
 import { buildTodayView } from '../../../lib/today-demo';
 import { todayISO, useLiveWeek } from '../../../lib/live-plan';
 import { useLiveReadiness } from '../../../lib/live-readiness';
@@ -10,6 +11,14 @@ import { SignalsPanel } from '../../../components/today/SignalsPanel';
 import { WeekStrip } from '../../../components/today/WeekStrip';
 import { ComingUp } from '../../../components/today/ComingUp';
 import { AttentionCard } from '../../../components/today/AttentionCard';
+
+/** No change was made — what §10.2 returns for a day it decided to leave alone. */
+const UNADAPTED: AdaptationResult = {
+  action: 'none',
+  weekLoadDeltaPct: 0,
+  suppressS3Days: 0,
+  illnessPrompt: false,
+};
 
 export default function TodayPage() {
   // Every number is computed by the pure engine (@ironflow/core/physio); the week comes from
@@ -27,6 +36,20 @@ export default function TodayPage() {
   const todaySession =
     live && todayRow ? { workoutId: todayRow.id, planId: live.planId, sZone: todayRow.goal_zone } : undefined;
 
+  // The athlete's own session — the row §10.2 adapts. This used to render the sample athlete's
+  // session unconditionally, so the screen described a workout nobody was scheduled to do while
+  // the real one was quietly rewritten underneath it.
+  const session = live?.todaySession ?? view.session;
+  const isLiveSession = Boolean(live?.todaySession);
+  const effectiveZone = isLiveSession ? session.plannedZone : view.effectiveZone;
+
+  // The banner and the attention list both describe *this* session, so neither may fall back to
+  // the sample's once the session is real: the sample's narrative is "the engine eased today's
+  // VO₂ session", which would be pinned over an athlete's easy run that nothing touched. With a
+  // real session and no check-in yet, the honest state is simply "unadapted".
+  const sessionAdaptation = adaptation ?? (isLiveSession ? UNADAPTED : view.adaptation);
+  const attention = isLiveSession ? view.attention.filter((i) => i.kind !== 'plan_change') : view.attention;
+
   const provenance = live
     ? liveReadiness
       ? 'Your plan · your readiness'
@@ -43,9 +66,9 @@ export default function TodayPage() {
       </div>
 
       <VerdictHero
-        session={view.session}
-        adaptation={adaptation ?? view.adaptation}
-        effectiveZone={view.effectiveZone}
+        session={session}
+        adaptation={sessionAdaptation}
+        effectiveZone={effectiveZone}
         readiness={readiness}
         // The narrative explains the sample adaptation, so it only holds while readiness is
         // the sample's. With a real score, the band speaks for itself rather than borrowing
@@ -64,13 +87,13 @@ export default function TodayPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr_1fr]">
-        <SessionShapePanel session={view.session} />
+        <SessionShapePanel session={session} />
         <SignalsPanel components={readiness.components} />
         <WeekStrip week={week} />
       </div>
 
       <ComingUp sessions={comingUp} />
-      <AttentionCard items={view.attention} />
+      <AttentionCard items={attention} />
     </div>
   );
 }

@@ -9,6 +9,7 @@
 export * from './types.js';
 export * from './constants.js';
 export * from './confidence.js';
+export * from './degradation.js';
 
 // Anchors — the athlete model (§2, §6)
 export * from './anchors/hrMax.js';

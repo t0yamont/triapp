@@ -9,12 +9,15 @@ const avail: Availability = {
   swimDays: [4],
 };
 
+/** These cases are about placement, not §2.4 — a fully-anchored athlete keeps S3 on the table. */
+const WELL_ANCHORED = 0.8;
+
 const restDaysOf = (a: Availability, sessionDays: number[]) =>
   Object.keys(a.dayMinutes).map(Number).filter((d) => !sessionDays.includes(d));
 
 describe('Microcycle construction (§8.4)', () => {
   it('builds a guardrail-valid week that respects availability (I17, I18)', () => {
-    const wk = constructMicrocycle({ phase: 'build', isRecoveryWeek: false, loadTarget: 600, availability: avail });
+    const wk = constructMicrocycle({ confidence: WELL_ANCHORED, phase: 'build', isRecoveryWeek: false, loadTarget: 600, availability: avail });
     expect(validateWeek(wk)).toEqual([]);
     // exactly one quality (S3) session
     expect(wk.sessions.filter((s) => s.isHard)).toHaveLength(1);
@@ -30,6 +33,7 @@ describe('Microcycle construction (§8.4)', () => {
 
   it('a recovery week has no S3, two rest days, and lands in the 55–70% band', () => {
     const wk = constructMicrocycle({
+      confidence: WELL_ANCHORED,
       phase: 'recovery',
       isRecoveryWeek: true,
       loadTarget: 300,
@@ -43,7 +47,7 @@ describe('Microcycle construction (§8.4)', () => {
   });
 
   it('trims S3 under the stricter Base cap (8%)', () => {
-    const wk = constructMicrocycle({ phase: 'base', isRecoveryWeek: false, loadTarget: 600, availability: avail });
+    const wk = constructMicrocycle({ confidence: WELL_ANCHORED, phase: 'base', isRecoveryWeek: false, loadTarget: 600, availability: avail });
     expect(validateWeek(wk)).toEqual([]);
     const total = wk.sessions.reduce((a, s) => a + s.durationMin, 0);
     const s3 = wk.sessions.filter((s) => s.sZone === 'S3').reduce((a, s) => a + s.durationMin, 0);
@@ -52,6 +56,7 @@ describe('Microcycle construction (§8.4)', () => {
 
   it('never exceeds the weekly hour ceiling, dropping sessions if it must (G10)', () => {
     const wk = constructMicrocycle({
+      confidence: WELL_ANCHORED,
       phase: 'build',
       isRecoveryWeek: false,
       loadTarget: 600,
@@ -63,6 +68,7 @@ describe('Microcycle construction (§8.4)', () => {
 
   it('works with no declared long day and no swim days', () => {
     const wk = constructMicrocycle({
+      confidence: WELL_ANCHORED,
       phase: 'build',
       isRecoveryWeek: false,
       loadTarget: 600,
@@ -74,6 +80,7 @@ describe('Microcycle construction (§8.4)', () => {
 
   it('handles a minimal week where the only session day is the long day', () => {
     const wk = constructMicrocycle({
+      confidence: WELL_ANCHORED,
       phase: 'build',
       isRecoveryWeek: false,
       loadTarget: 300,

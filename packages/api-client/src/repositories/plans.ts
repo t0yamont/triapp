@@ -28,29 +28,15 @@ import type { Tables, TablesInsert } from '../types.js';
 
 // ── Pure mappers (unit-tested) ───────────────────────────────────────────────
 
-const SPORT_NAME: Record<PlanSport, string> = { run: 'Run', bike: 'Ride', swim: 'Swim', brick: 'Brick', strength: 'Strength' };
-
 /**
- * ponytail: minimal materialisation of a scheduled session into a concrete workout. The
- * engine's sessions are zone-and-duration shaped; purpose/name/structure are derived here.
- * A richer render (from sessions/library) is the follow-up — the shape below is persistence-valid.
+ * A scheduled session → a workout row.
+ *
+ * Nothing is derived here any more. `name`, `purpose`, `templateId` and `structure` are
+ * rendered by the engine (`sessions/library.ts`, §7) and travel on the `ScheduledWorkout`, so
+ * this is a pure field mapping. The previous version derived all four from `isHard` + sport —
+ * a §7 formula living in the persistence layer, which is exactly what `CLAUDE.md` forbids, and
+ * why every workout was named "Ride — aerobic" and every structure was `{ kind: 'steady' }`.
  */
-export function workoutPurpose(sw: ScheduledWorkout): SessionPurpose {
-  return sw.isHard ? 'vo2max' : 'aerobic_volume';
-}
-
-export function workoutName(sw: ScheduledWorkout): string {
-  return sw.isHard ? `${SPORT_NAME[sw.sport]} intervals` : `${SPORT_NAME[sw.sport]} — aerobic`;
-}
-
-export function workoutTemplateId(sw: ScheduledWorkout): string {
-  return `${sw.sport}.${sw.sZone.toLowerCase()}${sw.isHard ? '.key' : ''}`;
-}
-
-function workoutStructure(sw: ScheduledWorkout): Json {
-  return { kind: sw.isHard ? 'intervals' : 'steady', durationMin: sw.durationMin, goalZone: sw.sZone };
-}
-
 export function toWorkoutRow(
   athleteId: string,
   planId: string,
@@ -63,14 +49,14 @@ export function toWorkoutRow(
     plan_week_id: planWeekId,
     scheduled_date: sw.scheduledDate,
     sport: sw.sport,
-    template_id: workoutTemplateId(sw),
-    name: workoutName(sw),
-    purpose: workoutPurpose(sw),
+    template_id: sw.templateId,
+    name: sw.name,
+    purpose: sw.purpose,
     goal_zone: sw.sZone,
     is_key_session: sw.isHard,
     planned_duration_min: sw.durationMin,
     planned_load: sw.load,
-    structure: workoutStructure(sw),
+    structure: sw.structure as unknown as Json,
   };
 }
 

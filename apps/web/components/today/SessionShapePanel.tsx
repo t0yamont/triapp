@@ -58,7 +58,9 @@ export function SessionShapePanel({ session }: { session: PlannedSession }) {
         ))}
       </div>
 
-      <ConfidenceDot confidence={session.targetsConfidence} label="Watts from your ramp test, 34 days ago · high confidence" />
+      {/* The note travels with the session, so a live one can't inherit the sample's claim of a
+          ramp test that never happened. */}
+      <ConfidenceDot confidence={session.targetsConfidence} label={session.targetsNote} />
     </Card>
   );
 }

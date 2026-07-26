@@ -924,3 +924,281 @@ and this records what the athlete felt rather than changing what was asked of th
 **Verified reachable under RLS:** `own_rows on activities` is `for all` with
 `athlete_id = auth.uid()`, so the anon-key client may update its own rows; no service-role path is
 needed.
+
+---
+
+## D-TODAY-REAL-SESSION — Today shows the athlete's own session
+
+**Status:** implemented. **Spec:** §7.1, §3.1, §2.4.
+
+`today/page.tsx` passed `buildTodayView().session` — the **sample athlete's** session — to both
+`VerdictHero` and `SessionShapePanel`, unconditionally. Every athlete saw "VO₂ intervals · 75m ·
+3×5m @ 300–330 W" as their headline session regardless of what their plan said.
+
+**This was not a missing-data gap, it was wrong data.** A null renders "—" and is honest; this
+rendered a confident, specific, plausible workout that belonged to nobody. `00-AGENT-BRIEF`'s
+warning is exactly this failure mode: *plausible-looking output that is wrong in ways nobody
+notices for months*. Worse, the surrounding page — week strip, coming up, readiness, check-in —
+was already live, which made the fabricated centre **more** credible.
+
+**The data was already in hand.** The same component read `todayRow` from the persisted plan one
+line above, purely to pass `workoutId`/`goal_zone` into the check-in so §10.2 could adapt it. So
+the app rewrote the athlete's real workout in the database while describing a different one on
+screen, and the adaptation banner narrated that change over the sample's session.
+
+**Two things `toPlannedSession` deliberately refuses to invent:**
+
+1. **The interval breakdown.** `workouts.structure` holds only
+   `{ kind, durationMin, goalZone }` — the `toWorkoutRow` shortcut — so the work/recovery pattern
+   of an interval session is *not persisted anywhere*. The shape bar renders the one block the
+   data attests to. Fabricating 3×5min would be the very bug being fixed. A real silhouette needs
+   `sessions/library.ts` (§7) wired into plan generation, which also fixes the generic names.
+2. **Targets with no anchor.** With no `ZoneSet` the row carries duration only and
+   `targetsConfidence: 0`, plus a note saying zones don't exist yet — rather than a number with
+   no evidence behind it.
+
+**Where the targets come from is the point.** Heart-rate ranges are derived from the athlete's
+persisted `athlete_zones` (S1 spans Z1–Z2, S2 spans Z3–Z4, S3 is Z5), and `targetsConfidence`
+carries `anchorConfidence` straight through. This is design commitment #1 — *every number honest
+about how sure it is* — reaching the primary screen for the first time. The jsonb is
+Zod-validated, not cast: these bpm numbers are shown to an athlete as targets to train at.
+
+**Two sibling lies fixed with it**, both the same class:
+
+- `SessionShapePanel` hardcoded the confidence label `"Watts from your ramp test, 34 days ago"` —
+  a test that never happened. The note now travels on the session (`targetsNote`), so a live
+  session cannot inherit the sample's claim.
+- The adaptation banner fell back to `view.adaptation` ("the engine eased today's VO₂ session").
+  Against a real, untouched session that is a false claim of a plan change, so a live session with
+  no check-in yet now shows `UNADAPTED`, and the sample's `plan_change` attention item is
+  filtered out.
+
+## D-DUPLICATE-PLAN-CLEANUP — a diagnostic for damage already done
+
+`D-AUTH-DESTINATION` stops new duplicate active plans; it cannot undo the ones the old behaviour
+created. `supabase/diagnostics/duplicate_active_plans.sql` finds them and archives the ones never
+trained against.
+
+**Not "keep the newest".** That is merely what `getActivePlan` happens to do (`order by created_at
+desc limit 1`), and it is how the damage hides: the newest empty duplicate shadows the plan the
+athlete actually trained against, taking its workouts and completion history out of view. The
+script ranks by *evidence* — completed workouts, linked activities, audit rows — and only then by
+recency, and it **archives rather than deletes**, so nothing an athlete did is lost and a wrong
+call is reversible. STEP 3 ships commented out, inside a transaction, with a re-check before
+commit.
+
+---
+
+## D-SESSION-LIBRARY-WIRED — §7 session templates reach a generated plan
+
+**Status:** implemented. **Spec:** §7.1, §7.2, F13.
+
+`sessions/library.ts` had existed since early on with **one exported function** (`renderVo2max`)
+and **no caller outside its own test**. Plan generation never touched it. Instead
+`api-client::toWorkoutRow` derived name, purpose, template id and structure from `isHard` +
+sport — a §7 formula living in the persistence layer, which `CLAUDE.md` explicitly forbids
+("If you are writing a formula in an app, it is in the wrong place"). The visible results were
+that every workout was called "Ride — aerobic" or "Run intervals", and every `structure` was the
+placeholder `{ kind, durationMin, goalZone }`.
+
+That placeholder is why [[Today Dashboard]] could not draw a real session silhouette: the
+work/recovery pattern was **not persisted anywhere**.
+
+**Purpose is now decided by the planner** (`micro.ts::sessionPurpose`), because it is a planning
+decision — it depends on the phase, the week type and which slot the session landed in.
+`WeekSession.purpose` had been an optional field since the first commit with nothing ever setting
+it; it is now **required**, which deleted the last dead fallback in `generate.ts` and made the
+type tell the truth. Only purposes the placer can actually produce are assigned: no threshold
+(it emits no S2-only work), no bricks, no strength.
+
+**Duration is the invariant that made this non-trivial.** The canonical bike VO₂ session is
+~63 min; the planner's S3 slot cap is 40. A structure that disagreed with `planned_duration_min`
+would be two contradictory numbers for one session, and that column drives load and every
+guardrail. `renderSession` therefore renders to **exactly** the allocated duration, and a test
+asserts it across every sport × purpose × duration combination, plus across every workout of a
+generated 16-week plan.
+
+**What flexes and what does not.** The *format* is the physiological claim and is never rescaled —
+30/15 for the bike, 3–4 min for the run — because that divergence is the whole point of F13. Only
+the repetition count flexes to fit the slot. Warm-up and cool-down are capped at a fraction of a
+short session rather than eating it whole.
+
+**`durability` puts its race-pace block in the final third** (§7.2, §11). Not decoration: the
+decoupling reading compares the session's two halves, so a harder block placed early would
+manufacture drift. Placed last, it builds and measures durability at once.
+
+**An easy session is left unembellished.** One steady block. Inventing structure for an aerobic
+run would be inventing a prescription.
+
+### The shape bar, and two bugs the tests caught
+
+`toSessionIntervals` flattens the stored structure for [[Today Dashboard]]'s silhouette. Two
+defects in the first attempt, both found by tests written from the spec rather than from the
+implementation:
+
+1. **Rounding drift.** Rounding each block independently rendered a 40-minute session as 43 —
+   next to a header printing "40m". Fixed with largest-remainder rounding, the same technique
+   `distribution/classify.ts` uses to keep percentages summing to 100.
+2. **Unreadable expansion.** A bike VO₂ set expands to 78 alternating slivers; merging adjacent
+   same-zone blocks doesn't help because the zones alternate by design. Past a readable budget a
+   repeat is now **summed** rather than drawn out — one work block, one recovery block, same
+   totals and the same alternation at set level — while a run's 5 × 3 min still draws every
+   repetition.
+
+Older plans stored the placeholder structure, so the flattener returns null for those and the
+session falls back to a single block rather than rendering nothing.
+
+---
+
+## D-I15-ENFORCED — confidence now caps intensity, not just ramp rate
+
+**Status:** implemented. **Spec:** §2.4, §14, invariant I15, Phase-5 gate.
+
+Invariant I15: *"With anchor confidence <0.30, no generated workout has `goalZone = 'S3'`."*
+It did not hold. A probe against `generatePlan` at confidence 0.20 produced **11 S3 (VO₂max)
+workouts in a 12-week plan**.
+
+`confidence.ts` had always computed the full §2.4 behaviour table correctly — including
+`maxSZone: 'S1'` for the critical tier, with a comment claiming it *"guarantees invariant I15"*.
+But ==`maxSZone` appeared nowhere in `plan/*.ts`==. `constructMicrocycle` was never even passed
+confidence; `assemblePlan` had it and forwarded it only to `applyRampCap`. So confidence
+governed **how fast load grew and never how hard the sessions were** — half of the product's
+first design commitment ("low confidence slows progression, shifts intensity targets
+conservatively, and forces earlier testing") was simply absent.
+
+`z5VolumeFraction` was unconsumed for the same reason, so the fix covers both: `MicroInput`
+takes a **required** `confidence`, S3 is only placed when `maxSZone === 'S3'`, and G6's phase cap
+on S3 minutes is multiplied by `z5VolumeFraction`. The two are multiplicative because they
+constrain different things — the phase caps intensity *distribution*, confidence caps how much
+of it we are willing to prescribe on the evidence available.
+
+**The critical tier still gets a full week**, not an empty one: §2.4 says "aerobic and technique
+work only", not "stop training". The placer fills every available day with S1 work and the §7.2
+purposes stay meaningful.
+
+**Why the existing gate never caught it.** The Phase-8 season simulation runs 20 synthetic
+athletes at `confidence: 0.3 + (i % 7) * 0.1` — **0.30 to 0.90**. The cohort's floor sat exactly
+on the I15 boundary, so no athlete was ever in the tier the invariant is about. The cohort now
+extends to 0.15, and the gate asserts I15 across it plus a z5-volume comparison between tiers.
+A test that cannot fail is worth nothing: reverting the one-line `allowS3` change fails four
+tests, including the season gate.
+
+> [!warning] Reachability, stated honestly
+> Today the app only ever generates a plan at onboarding, with a hardcoded
+> `NEW_ATHLETE_CONFIDENCE = 0.3` — which is the *low* tier, one hundredth above the boundary. So
+> this path is not currently reachable through the UI. It becomes load-bearing the moment plan
+> regeneration uses the athlete's **real** model confidence, where an age-formula HRmax scores
+> `population_formula = 0.2` and combined confidence is the *minimum* of components — i.e. the
+> moment the "apply the rest of the adaptation decisions" gap is closed. The ceiling is in place
+> before that happens rather than being a landmine underneath it.
+
+**Also unconsumed, not fixed here:** `ConfidenceBehaviour.blocking` (true only for the critical
+tier — §2.4's "UI-blocking, test within 7 days") is read by nothing. An athlete dropped to
+aerobic-only work is currently told *nothing* about why, or that a field test would lift it.
+That is a UI gap and belongs with the field-test capture screen.
+
+---
+
+## D-F15-DEGRADATION — §14 is code now, not prose
+
+**Status:** implemented. **Spec:** §14, F15, Phase-5 gate.
+
+F15 gates Phase 5 and **had never been written** — no fixture, no test. §14's degradation matrix
+existed only as a table in the spec: `deriveHrMax`/`deriveHrRest` returned null and told the
+caller to "degrade", and no caller knew what that meant.
+
+`physio/degradation.ts` makes the matrix a table the way `confidence.ts` does for §2.4, plus the
+fixture `F15-degradation.json` and 16 tests. Pure and **total**: every capability combination
+returns a complete answer, because "no crash, no null targets" is precisely what F15 asserts.
+
+**RPE is the floor, and that is the point.** `sessionTargets` always returns at least one target,
+because RPE needs no sensor — which is exactly why §14 falls back to it. An athlete with no HR
+anchors used to get a session card showing duration and nothing else; they now get a real
+prescription. Modalities are ordered most-objective-first: with a power meter you read watts and
+treat RPE as a sanity check; with neither, RPE *is* the prescription.
+
+**Power and pace are named without a band.** The modality is prescribable but the *number* needs
+a CP/CS/CSS anchor no field test has produced. Naming the modality and admitting the number is
+missing is the honest half of the answer; inventing a watt range would be the dishonest one.
+
+**Swim exclusion applies to *measured* load, not planned load.** §14 says "exclude from load
+totals with a visible note". `sumMeasuredLoad` does that. It deliberately does **not** touch the
+planner's arithmetic: planned load is duration × zone weight and needs no swim data at all, so
+excluding planned swim volume would distort the ramp guardrails for no gain. The note is
+mandatory whenever anything is excluded — a silently smaller total is indistinguishable from an
+easy week.
+
+**Wired, not shelved.** `toPlannedSession` now builds its target rows from `sessionTargets`, so
+this is reachable from [[Today Dashboard]] the day it lands. That is deliberate: `sessions/library.ts`
+sat uncalled for months and `maxSZone` was computed and never read — an engine module with no
+caller is the failure mode this repo keeps producing.
+
+`capabilitiesOf` is honest about being provisional: `hasHr` is real (a zone set exists only when
+HR anchors were derived); the rest are `false` because **no athlete has a CP/CS/CSS anchor**, so
+no power or pace target is expressible for anyone, and nothing yet inspects activity history for
+a power meter or swim data. §14's safest answer is the degraded one, so unknown ⇒ false is the
+correct direction, not a placeholder that flatters.
+
+### `D-RPE-BANDS` — flagged, needs sign-off
+
+§14 says to prescribe by RPE and §5.1 cites Foster's CR10 for sRPE, but ==the spec never states
+which RPE corresponds to which zone==. `RPE_BY_SZONE` (S1 2–4, S2 5–7, S3 8–10) follows Foster's
+verbal anchors mapped onto the LT1/LT2 boundaries the S-zones already encode, and is deliberately
+conservative at the top — S3 starts at 8, not 7, so an athlete steering by feel under-shoots
+rather than over-shoots the hardest work. Same posture as `DECOUPLING_LONG_STOP_S`: the engine
+needs a number to prescribe anything at all, so it uses a documented convention and says loudly
+that it is one.
+
+**Also unresolved:** §14 asks for swim "stroke-count targets" but gives no way to derive one, and
+an athlete with no swim data has no baseline to derive it from. The target is therefore an
+instruction ("hold it steady across lengths"), not a fabricated number.
+
+---
+
+## D-FIELD-TEST-CAPTURE — a test result can finally be recorded
+
+**Status:** implemented (swim CSS). **Spec:** §6.3, §12, §5.1.
+
+§12 opens with *"tests are prescriptions, not suggestions"*, and `nextFieldTest` has been telling
+athletes **when** to test since early on — wired into [[Today Dashboard]] and `PlanGeneration`.
+Nothing anywhere recorded what a test **measured**. So `fitCriticalSwimSpeed` had no caller
+outside its own test, no athlete ever acquired a threshold anchor, `athlete_anchors` held only
+HR anchors, and `external_load` was null for every activity ever ingested.
+
+**Swim-only, and that is a considered scope, not a shortcut.** CSS is the one anchor that
+*requires* a human to type something in: §6.3 fits critical power and critical speed **passively**
+from mean-max efforts in ordinary training, explicitly "no test". A bike or run capture form would
+be asking the athlete for data the engine is supposed to derive on its own — building it would
+create the wrong habit and the wrong UI. Bike/run TSS is unblocked by wiring mean-max fitting to
+ingested streams, not by another form.
+
+**A refused fit is an outcome, not an error.** `fitCriticalSwimSpeed` rejects wrong distances, a
+400 m faster than the 200 m, and a 200 m paced so hard the pair no longer describes a sustainable
+speed. Each gets its own sentence. This matters more than usual: an inflated CSS silently becomes
+every swim target *and* every swim TSS value until the next test, so "we couldn't use that" is the
+correct answer, not something to round away.
+
+**Anchors are superseded, never overwritten** — the previous current row gets `superseded_at`,
+matching how `persistAthleteModel` treats HR anchors, so a past prescription stays explicable.
+
+**The read half shipped with the write half.** `deriveAthleteModel` now folds stored sport anchors
+into `model.sports` via `toSportAnchors`, and ingest scores swims with `toSwimTss`. Writing a row
+that nothing reads is the exact dead end this repo keeps re-creating — `sessions/library.ts` sat
+uncalled for months, `maxSZone` was computed and never read, `getActivitiesInRange` had no
+callers. Not a fourth time.
+
+**What it unlocks, precisely:** swim `external_load`. Bike and run TSS remain null, because they
+need CP/CS, which need mean-max fitting over stored streams — and `streams.ts` still has no
+unpacker. §14's `cpFitAllowed` stays false for everyone, so power and pace targets still name a
+modality without a number.
+
+> [!warning] The migration finally matters
+> This is the **first code path that writes `provenance = 'css_test'`**, the value migration
+> `20260726100000_provenance_add_tiers` adds. Until it is applied, the insert fails with an enum
+> error. `recordCssTest` detects that specific failure and returns `status: 'blocked'` with an
+> actionable sentence, rather than surfacing a driver error or — worse — appearing to succeed.
+
+**Inherited open question:** a stored swim TSS carries `D-SWIM-IF`. §5.1 defines swim
+`IF = CSS / actual`, so swimming *easier* than CSS **inflates** the score. Implemented
+spec-literal with the flag carried into `toSwimTss`; if that question resolves the other way,
+every stored swim TSS changes with it.

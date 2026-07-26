@@ -6,8 +6,9 @@
  * directly to plan_weeks / workouts.
  */
 
+import { renderSession, sessionTemplateId, type WorkoutStructure } from '../sessions/library.js';
 import { assemblePlan, type PlanInput, type PlanWeekResult } from './assemble.js';
-import type { PlanPhase, PlanSport } from './types.js';
+import type { PlanPhase, PlanSport, SessionPurpose } from './types.js';
 import type { SZone } from '../types.js';
 
 export interface GeneratePlanInput extends PlanInput {
@@ -29,6 +30,50 @@ export interface ScheduledWorkout {
   durationMin: number;
   load: number;
   isHard: boolean;
+  /** What the session is for (§7.2) — decided by the microcycle placer. */
+  purpose: SessionPurpose;
+  /** Athlete-facing name, derived from sport + purpose. */
+  name: string;
+  /** Which template rendered it, for traceability (`workouts.template_id`). */
+  templateId: string;
+  /**
+   * The concrete session (§7.1), rendered to exactly `durationMin`.
+   *
+   * Carried on the workout rather than derived at persistence time: this is §7 engine logic,
+   * and a formula living in `api-client` or an app would be in the wrong place (CLAUDE.md).
+   */
+  structure: WorkoutStructure;
+}
+
+/**
+ * Athlete-facing session names. Copy, not physiology — but the mapping is exhaustive so a new
+ * purpose can never silently render a blank headline on [[Today Dashboard]].
+ */
+const SPORT_LABEL: Record<PlanSport, string> = {
+  run: 'Run',
+  bike: 'Bike',
+  swim: 'Swim',
+  brick: 'Brick',
+  strength: 'Strength',
+};
+
+const PURPOSE_LABEL: Record<SessionPurpose, string> = {
+  aerobic_volume: 'aerobic',
+  threshold: 'threshold',
+  vo2max: 'VO₂ intervals',
+  race_specific: 'race pace',
+  durability: 'long, with race-pace finish',
+  technique: 'technique',
+  recovery: 'recovery',
+  brick: 'brick',
+  strength: 'strength',
+  heat_adaptation: 'heat block',
+  field_test: 'field test',
+  rest: 'rest',
+};
+
+export function sessionName(sport: PlanSport, purpose: SessionPurpose): string {
+  return `${SPORT_LABEL[sport]} — ${PURPOSE_LABEL[purpose]}`;
 }
 
 export interface PlanSummary {
@@ -97,6 +142,7 @@ export function generatePlan(input: GeneratePlanInput): GeneratedPlan {
   const workouts: ScheduledWorkout[] = [];
   for (const w of weeks) {
     for (const s of w.week.sessions) {
+      const spec = { sport: s.sport, purpose: s.purpose, goalZone: s.sZone, durationMin: s.durationMin };
       workouts.push({
         weekNumber: w.weekNumber,
         phase: w.phase,
@@ -108,6 +154,10 @@ export function generatePlan(input: GeneratePlanInput): GeneratedPlan {
         durationMin: s.durationMin,
         load: s.load,
         isHard: s.isHard,
+        purpose: s.purpose,
+        name: sessionName(s.sport, s.purpose),
+        templateId: sessionTemplateId(spec),
+        structure: renderSession(spec),
       });
     }
   }

@@ -1,7 +1,7 @@
 'use client';
 
 import { assessPlanWindow, assessStartReadiness, generatePlan, nextFieldTest, type BaselineAbility, type GeneratePlanInput } from '@ironflow/core/physio';
-import { insertGeneratedPlan, type GeneratedPlanMeta, type Json } from '@ironflow/api-client';
+import { getActivePlan, insertGeneratedPlan, type GeneratedPlanMeta, type Json } from '@ironflow/api-client';
 import { Button, Card } from '@ironflow/ui';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -84,6 +84,16 @@ export function PlanGeneration({ input, baseline }: { input: GeneratePlanInput; 
       course: input.course,
     };
     try {
+      // Never silently create a second active plan. `insertGeneratedPlan` inserts
+      // unconditionally and `getActivePlan` takes the *newest* active row, so a duplicate
+      // wouldn't error — it would quietly shadow the athlete's real plan, orphaning the
+      // `workouts` (and completion history) attached to the original.
+      if (await getActivePlan(supabase, athleteId)) {
+        setSave('error');
+        setErrorMsg('You already have an active plan — opening it instead of building a second one.');
+        router.push('/today');
+        return;
+      }
       await insertGeneratedPlan(supabase, athleteId, plan, meta);
       router.push('/today');
     } catch (e) {

@@ -4,7 +4,7 @@ import { isValidWeek, weekLoad } from '../plan/invariants.js';
 import type { GuardrailWeek, WeekSession } from '../plan/types.js';
 
 function s(p: Partial<WeekSession> & Pick<WeekSession, 'dayOfWeek'>): WeekSession {
-  return { sport: 'run', sZone: 'S1', durationMin: 60, load: 60, isHard: false, ...p };
+  return { sport: 'run', sZone: 'S1', purpose: 'aerobic_volume', durationMin: 60, load: 60, isHard: false, ...p };
 }
 
 it('the fixture week is guardrail-valid to begin with', () => {

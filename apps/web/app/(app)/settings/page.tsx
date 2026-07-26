@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, Card, ConfidenceDot, Field, Input, Select } from '@ironflow/ui';
+import { FieldTestCard } from '../../../components/settings/FieldTestCard';
 import { ZonesCard } from '../../../components/settings/ZonesCard';
 
 interface Anchor {
@@ -59,6 +60,7 @@ export default function SettingsPage() {
       </header>
 
       <ZonesCard />
+      <FieldTestCard />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
         <div className="flex flex-col gap-6">

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { ONBOARDING_START, postAuthDestination } from '../lib/post-auth';
 import { supabaseConfigured, useSupabase } from '../lib/supabase';
 import { NotConnectedBanner } from './NotConnectedBanner';
 
@@ -34,19 +35,24 @@ export function AuthForm({ mode }: { mode: 'signin' | 'signup' }) {
       mode === 'signup'
         ? await supabase.auth.signUp({ email: values.email, password: values.password })
         : await supabase.auth.signInWithPassword({ email: values.email, password: values.password });
-    setBusy(false);
     if (error) {
+      setBusy(false);
       setServerError(error.message);
       return;
     }
-    router.push('/onboarding/about');
+    // An athlete who already has a plan goes straight to the app. Deciding here (rather than
+    // only in the onboarding guard) means no flash of the "about you" form on the way through.
+    router.push(await postAuthDestination(supabase));
+    setBusy(false);
   }
 
   async function oauth(provider: 'google' | 'apple') {
     if (!supabase) return;
+    // The provider needs this URL before anyone has logged in, so the decision can't happen
+    // here — `/onboarding/about` bounces to the app itself when a plan already exists.
     await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/onboarding/about` },
+      options: { redirectTo: `${window.location.origin}${ONBOARDING_START}` },
     });
   }
 

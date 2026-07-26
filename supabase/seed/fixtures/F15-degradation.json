@@ -1,0 +1,33 @@
+{
+  "id": "F15",
+  "description": "Degradation — an athlete with no HRV, no power meter, no swim data (07-ACCEPTANCE.md §B F15; 03-ALGORITHM.md §14)",
+  "input": {
+    "capabilities": {
+      "hasHrv": false,
+      "hasHr": true,
+      "hasPowerMeter": false,
+      "hasRunningGps": true,
+      "hasSwimData": false,
+      "hasSleepDevice": false
+    },
+    "note": "HR is present because the athlete owns a watch; the three named absences are HRV, power and swim data."
+  },
+  "expected": {
+    "planStillGenerates": true,
+    "readiness": {
+      "fromWellnessOnly": true,
+      "components": ["wellness", "completion"],
+      "note": "Weights redistribute across whatever inputs exist (§10.1); no HRV and no sleep device leaves wellness + completion."
+    },
+    "bikeTargets": ["hr", "rpe"],
+    "swimTargets": ["stroke_count", "rpe"],
+    "swimLoad": {
+      "excludedFromTotals": true,
+      "requiresVisibleNote": true
+    },
+    "dfaA1Available": false,
+    "cpFitAllowed": false,
+    "recommendBikeFieldTest": true,
+    "note": "No crash, no null targets: every session gets at least an RPE band, which needs no sensor."
+  }
+}

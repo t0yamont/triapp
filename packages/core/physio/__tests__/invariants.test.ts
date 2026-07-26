@@ -18,7 +18,7 @@ import {
 import type { GuardrailWeek, WeekSession } from '../plan/types.js';
 
 function session(p: Partial<WeekSession> & Pick<WeekSession, 'dayOfWeek'>): WeekSession {
-  return { sport: 'run', sZone: 'S1', durationMin: 60, load: 50, isHard: false, ...p };
+  return { sport: 'run', sZone: 'S1', purpose: 'aerobic_volume', durationMin: 60, load: 50, isHard: false, ...p };
 }
 
 describe('Ramp guardrail G1 (§5.3, F8)', () => {

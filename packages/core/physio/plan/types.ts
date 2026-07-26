@@ -37,7 +37,13 @@ export interface WeekSession {
   dayOfWeek: number;
   sport: PlanSport;
   sZone: SZone;
-  purpose?: SessionPurpose;
+  /**
+   * What the session is for (§7.2), and therefore which template renders it. Required: the
+   * microcycle placer always decides one, and `sessions/library.ts` needs it to render
+   * anything more specific than "steady effort". It was optional-and-never-set for a long
+   * time, which is why every persisted workout used to be called "Ride — aerobic".
+   */
+  purpose: SessionPurpose;
   durationMin: number;
   /** Planned load for this session (any of the §5 load metrics; used for guardrails). */
   load: number;

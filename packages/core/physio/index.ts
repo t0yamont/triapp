@@ -60,5 +60,6 @@ export * from './durability/decoupling.js';
 // Adaptive engine — readiness scoring & response rules (§10)
 export * from './readiness/score.js';
 export * from './readiness/history.js';
+export * from './plan/completion.js';
 export * from './readiness/response.js';
 export * from './readiness/return.js';

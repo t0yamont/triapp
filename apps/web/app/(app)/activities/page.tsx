@@ -1,4 +1,5 @@
 import { Card } from '@ironflow/ui';
+import { UploadActivity } from '../../../components/activities/UploadActivity';
 import {
   ACTIVITIES,
   SPORT_META,
@@ -81,6 +82,8 @@ export default function ActivitiesPage() {
           <span className="font-mono tabular-nums text-accent-bright">{totals.loadTss}</span> load
         </span>
       </header>
+
+      <UploadActivity />
 
       <Card className="flex flex-col gap-1 p-3">
         {ACTIVITIES.map((a, i) => (

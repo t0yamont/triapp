@@ -640,3 +640,45 @@ five change how the *next week is generated*, and plan regeneration isn't wired 
 audited but not applied. Recording them keeps the reasoning in the data rather than losing it,
 and makes the gap visible where someone will actually see it. A failed audit insert rolls the
 target change back, as everywhere else.
+
+---
+
+## D-ACTIVITY-LINK — activity upload, and the join to the session it completed
+
+**Status:** implemented (upload + match + link). **Spec:** §5, §7 (dedupe); hard rules #6, #7.
+
+**What was already there.** The whole server side existed and was tested: FIT/TCX/GPX parsers
+(`@ironflow/core/ingest`), the dedupe rules, `upsertParsedActivity`, and the `ingest` Edge
+Function that composes them. What was missing was any way to *put a file in*, and the join
+back to the plan.
+
+**The join was the real gap.** `activities.planned_workout_id` and
+`workouts.completed_activity_id` both existed in the schema and were **never written by
+anything**, and `workouts.status` was never set to `completed`. That is why completion rate —
+which §10.3 reasons over for `REPLAN_UNDERCOMPLETION` / `REPLAN_FULL_RAMP` — had nothing real
+behind it. A wrong match quietly distorts the plan's view of training, so the matching lives in
+the engine as pure, tested logic (`plan/completion.ts`), not inline in a handler.
+
+**Matching rules, and why.**
+- **Day beats duration.** Same-day wins over a neighbouring day even if the neighbour's
+  duration is closer. An athlete who did 40 minutes of a planned 90 still did *that* session,
+  and the shortfall is exactly the signal §10.3 needs — matching it elsewhere would hide it.
+  Duration only breaks ties within a day.
+- **±1 day**, because long rides slip to Sunday and late sessions cross midnight once
+  timezones apply. Wider and a mid-week session starts absorbing the weekend's activity.
+- **Never across sports**, except that either leg may complete a `brick`. A silent
+  swim→run mismatch is worse than no match: the athlete can always link by hand, but cannot
+  easily discover a wrong attribution.
+- Never re-matches an already-linked session.
+
+**Parsing stays server-side** (hard rule #7). The browser posts raw bytes to the Edge Function
+and never touches the parser. The follow-up link is a separate, typechecked call from
+`api-client` rather than being added to the Deno function, which is outside `pnpm typecheck`.
+
+**No `plan_mutations` row for a completion.** Rule #10 covers plan *mutations*; linking an
+activity records what the athlete did, and leaves the plan itself untouched. Adapting the plan
+in response (§10.2/§10.3) is audited, as it should be.
+
+**Failures don't lose data.** An activity that matches nothing is still stored — it is training
+either way, just not attributed. If the back-link write fails, the workout side is reverted so
+a workout never points at an activity that doesn't point back.

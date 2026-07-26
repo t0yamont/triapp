@@ -8,9 +8,16 @@
  */
 
 import { isDuplicate, type ParsedActivity } from '@ironflow/core/ingest';
+import {
+  COMPLETION_MATCH_WINDOW_DAYS,
+  addDaysISO,
+  matchActivityToWorkout,
+  type ActivityMatch,
+  type PlanSport,
+} from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
 import { packFloat32, packInt16, packLatLng, toByteaHex } from '../streams.js';
-import type { TablesInsert } from '../types.js';
+import type { Tables, TablesInsert } from '../types.js';
 
 // ── Pure mappers (unit-tested) ───────────────────────────────────────────────
 
@@ -169,4 +176,110 @@ export async function upsertParsedActivity(
   }
   await client.from('activities').update({ is_duplicate_of: dup.id }).eq('id', newId);
   return { activityId: dup.id, outcome: 'deduped_as_source' };
+}
+
+// ── Linking an activity to the session it completed ─────────────────────────
+
+/**
+ * The athlete's *local* calendar date for an activity (hard rule #8: stored UTC, reasoned
+ * about in the athlete's zone). `local_tz_offset_min` is captured at ingest precisely so this
+ * doesn't depend on where the server or the browser happens to be.
+ */
+export function activityLocalDate(startTime: string, localTzOffsetMin: number): string {
+  const local = new Date(new Date(startTime).getTime() + localTzOffsetMin * 60_000);
+  const m = String(local.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(local.getUTCDate()).padStart(2, '0');
+  return `${local.getUTCFullYear()}-${m}-${d}`;
+}
+
+const SECONDS_PER_MINUTE = 60;
+
+/**
+ * Link an ingested activity to the planned session it completed, if one is plausible.
+ *
+ * Writes both directions (`activities.planned_workout_id`, `workouts.completed_activity_id`)
+ * and marks the workout completed — which is what makes completion rate real for §10.3
+ * ([[weeklyReplan]]) instead of inferred.
+ *
+ * Deliberately writes **no `plan_mutations` row**: hard rule #10 covers plan *mutations*, and
+ * this records what the athlete did rather than changing what was asked of them. The plan is
+ * untouched. (Adjusting a plan in response to it — §10.2/§10.3 — is audited, as it should be.)
+ *
+ * Returns the match, or null when nothing plausible was scheduled; an unmatched activity is
+ * kept, not discarded — it still counts as training, it just isn't attributed to a session.
+ */
+export async function linkActivityToPlannedWorkout(
+  client: TriflowClient,
+  athleteId: string,
+  activityId: string,
+): Promise<ActivityMatch | null> {
+  const { data: activity, error } = await client
+    .from('activities')
+    .select('id, sport, start_time, local_tz_offset_min, duration_s, planned_workout_id')
+    .eq('id', activityId)
+    .eq('athlete_id', athleteId)
+    .single();
+  if (error) throw error;
+  if (activity.planned_workout_id) return null; // already attributed
+
+  const localDate = activityLocalDate(activity.start_time, activity.local_tz_offset_min);
+  const { data: candidates } = await client
+    .from('workouts')
+    .select('id, scheduled_date, sport, planned_duration_min, status, completed_activity_id')
+    .eq('athlete_id', athleteId)
+    .gte('scheduled_date', addDaysISO(localDate, -COMPLETION_MATCH_WINDOW_DAYS))
+    .lte('scheduled_date', addDaysISO(localDate, COMPLETION_MATCH_WINDOW_DAYS));
+
+  const match = matchActivityToWorkout(
+    { localDate, sport: activity.sport as PlanSport, durationMin: activity.duration_s / SECONDS_PER_MINUTE },
+    (candidates ?? []).map((w) => ({
+      id: w.id,
+      scheduledDate: w.scheduled_date,
+      sport: w.sport as PlanSport,
+      plannedDurationMin: w.planned_duration_min,
+      completed: w.status === 'completed' || w.completed_activity_id !== null,
+    })),
+  );
+  if (!match) return null;
+
+  const { error: linkError } = await client
+    .from('workouts')
+    .update({ completed_activity_id: activityId, status: 'completed', updated_at: new Date().toISOString() })
+    .eq('id', match.workoutId)
+    .eq('athlete_id', athleteId);
+  if (linkError) throw linkError;
+
+  const { error: backLinkError } = await client
+    .from('activities')
+    .update({ planned_workout_id: match.workoutId })
+    .eq('id', activityId)
+    .eq('athlete_id', athleteId);
+  if (backLinkError) {
+    // Never leave a workout pointing at an activity that doesn't point back.
+    await client
+      .from('workouts')
+      .update({ completed_activity_id: null, status: 'scheduled' })
+      .eq('id', match.workoutId);
+    throw backLinkError;
+  }
+
+  return match;
+}
+
+/** The athlete's activities in [fromDate, toDate], newest first. Excludes deduped copies. */
+export async function getActivitiesInRange(
+  client: TriflowClient,
+  athleteId: string,
+  fromDate: string,
+  toDate: string,
+): Promise<Tables<'activities'>[]> {
+  const { data } = await client
+    .from('activities')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .is('is_duplicate_of', null)
+    .gte('start_time', `${fromDate}T00:00:00Z`)
+    .lte('start_time', `${toDate}T23:59:59Z`)
+    .order('start_time', { ascending: false });
+  return data ?? [];
 }

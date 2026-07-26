@@ -62,5 +62,6 @@ export * from './readiness/score.js';
 export * from './readiness/history.js';
 export * from './plan/completion.js';
 export * from './durability/streams.js';
+export * from './anchors/model.js';
 export * from './readiness/response.js';
 export * from './readiness/return.js';

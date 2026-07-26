@@ -1,4 +1,7 @@
+'use client';
+
 import { Button, Card, ConfidenceDot, Field, Input, Select } from '@ironflow/ui';
+import { ZonesCard } from '../../../components/settings/ZonesCard';
 
 interface Anchor {
   label: string;
@@ -54,6 +57,8 @@ export default function SettingsPage() {
         <h1 className="text-display text-text">Settings</h1>
         <p className="max-w-2xl text-body text-muted">Your profile, connected devices, and the thresholds the whole plan is anchored to.</p>
       </header>
+
+      <ZonesCard />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
         <div className="flex flex-col gap-6">

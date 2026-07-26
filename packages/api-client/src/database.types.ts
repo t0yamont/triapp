@@ -1046,7 +1046,9 @@ export interface Database {
     Functions: { [_ in never]: never };
     Enums: {
       plan_phase: "base" | "build" | "peak" | "taper" | "recovery" | "race_week" | "transition";
-      provenance: "lab_test" | "field_test" | "observed_max" | "dfa_a1_multi" | "cp_model_fit" | "athlete_reported" | "dfa_a1_single" | "passive_inference" | "population_formula";
+      // css_test / riegel_prediction added by migration 20260726100000_provenance_add_tiers.
+      // Hand-added here to match, since regenerating needs a live DB connection (D-TYPEGEN).
+      provenance: "lab_test" | "field_test" | "observed_max" | "dfa_a1_multi" | "cp_model_fit" | "athlete_reported" | "dfa_a1_single" | "passive_inference" | "population_formula" | "css_test" | "riegel_prediction";
       provider: "garmin" | "strava" | "apple_health" | "wahoo" | "polar" | "suunto" | "manual" | "fit_upload";
       race_priority: "A" | "B" | "C";
       session_goal: "S1" | "S2" | "S3";

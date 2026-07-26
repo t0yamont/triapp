@@ -728,3 +728,51 @@ load needs the thresholds above. The shape and trend are right; the units are "w
 asked for", not "what the body received" — so `loadBasis: 'planned_completed'` is carried
 through and the chart says so in plain words rather than implying measurement. Swap to
 `'measured'` the moment activities carry `internal_load`; `fitnessSeries` itself doesn't change.
+
+---
+
+## D-ATHLETE-MODEL — the athlete model is finally persisted
+
+**Status:** implemented (HR anchors + zones). **Spec:** §2.1–§2.3, §3.
+
+**The longest-standing gap in the repo.** `deriveHrMax`, `deriveHrRest`, `reconcileAnchor` and
+`buildZones` have existed since the first commit and **nothing ever wrote an athlete model**.
+Without one there are no zones; without zones there is no TRIMP and no time-in-zone — which is
+why those columns are null on every activity and why Analytics runs on planned load.
+
+**Everything derives from data the athlete actually gave.** Resting HR comes from their morning
+check-ins (`daily_metrics.resting_hr`, which `D-WELLNESS-NORM`'s card already collects), and
+HRmax from the age formula against the date of birth onboarding already captures — upgraded
+automatically by any measured value, since `deriveHrMax` prefers lab/observed/reported over a
+formula. Nothing is invented; if neither anchor can be derived, **no model is written at all**.
+
+**`D-HRREST-POP` is sidestepped, not resolved.** That open question asks for a *population
+default* resting HR. This needs none: the athlete's own readings are a better input than any
+table, and the population default remains unanswered for the case where an athlete has never
+checked in. The question stays open.
+
+**Refuses a contradictory model.** A non-positive HR reserve (a reported HRmax below measured
+resting HR) returns null rather than building zones on nonsense. Combined confidence is the
+**minimum** of the components, never an average (`D-COMBINED-CONF`) — a lab-tested HRmax must
+not disguise a weakly-known resting HR.
+
+**Zones are versioned, not overwritten.** A refresh sets `valid_to` on the current rows and
+inserts new ones, so a past prescription can still be explained by the zones in force at the
+time. Anchors likewise get `superseded_at` rather than being replaced.
+
+**Refreshed on check-in**, the moment new resting-HR data exists — a deliberate action, not a
+render effect, per `D-READINESS-RESPONSE`. A failure there is swallowed: the check-in is the
+athlete's data and must save regardless; the model is derived and can be rebuilt.
+
+### A real bug this surfaced: `D-PROVENANCE-ENUM-DRIFT`
+
+Persisting anchors revealed that the database `provenance` enum was **never extended** with
+`css_test` and `riegel_prediction` when `D-GOAL-TIME-CSS` added them to
+`PROVENANCE_CONFIDENCE`. Any attempt to store an anchor carrying either would have failed at
+runtime with an enum violation — undetected until now only because nothing wrote anchors at
+all. Migration `20260726100000_provenance_add_tiers.sql` adds them; `database.types.ts` was
+hand-updated to match, since regenerating needs a live connection (`D-TYPEGEN`).
+
+> The migration must be applied to the hosted project before anything persists a `css_test` or
+> `riegel_prediction` anchor. The HR anchors written today use pre-existing values, so they
+> work either way.

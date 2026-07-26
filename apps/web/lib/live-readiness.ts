@@ -14,6 +14,7 @@ import {
   adaptedZone,
   getDailyMetricsInRange,
   persistSessionAdaptation,
+  refreshAthleteModel,
   toDailyWellness,
   upsertDailyCheckIn,
   type DailyCheckIn,
@@ -149,6 +150,16 @@ export function useLiveReadiness(): UseLiveReadiness {
         const scored = readinessCoverage(history, today).available.length > 0 ? readinessScore(inputs) : undefined;
 
         await upsertDailyCheckIn(supabase, athleteId, today, checkIn, scored);
+
+        // A check-in is the only source of resting HR, so it's the moment the athlete model
+        // can change (§2.3). Refreshing here rather than on render keeps the write tied to a
+        // deliberate action, as with the adaptation below. Never fatal: the check-in is saved
+        // either way, and the model is derived, not entered.
+        try {
+          await refreshAthleteModel(supabase, athleteId, new Date().toISOString());
+        } catch {
+          /* the model simply stays as it was */
+        }
 
         // §10.2: the plan responds to readiness. Done here, on a deliberate athlete action,
         // rather than on render — a page load must never quietly rewrite the plan, and this

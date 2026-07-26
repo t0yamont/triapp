@@ -14,3 +14,4 @@ export * from './repositories/plans.js';
 export * from './repositories/races.js';
 export * from './repositories/wellness.js';
 export * from './repositories/replan.js';
+export * from './repositories/athleteModel.js';

@@ -1,9 +1,10 @@
 import type { ParsedActivity } from '@ironflow/core/ingest';
+import { buildAthleteModel, buildZones } from '@ironflow/core/physio';
 import { describe, expect, it } from 'vitest';
 import { readPublicEnv, readServiceEnv } from '../env.js';
-import { ingestRequestSchema } from '../schemas.js';
+import { ingestRequestSchema, zoneSetSchema } from '../schemas.js';
 import { packInt16, toByteaHex } from '../streams.js';
-import { toActivityRow, toLapRows, toStreamRow } from '../repositories/activities.js';
+import { toActivityLoad, toActivityRow, toLapRows, toStreamRow } from '../repositories/activities.js';
 
 const parsed: ParsedActivity = {
   sport: 'bike',
@@ -47,6 +48,74 @@ describe('activity row mappers', () => {
     expect(row.hr).toBe(toByteaHex(packInt16([140, 142, 145])));
     expect(row.rr_intervals).toBe(toByteaHex(packInt16([810, 800])));
     expect(row.power_w).toBeNull(); // absent stream → null
+  });
+});
+
+describe('time-in-zone and TRIMP at ingest', () => {
+  const NOW = '2026-07-26T07:00:00.000Z';
+  const { model } = buildAthleteModel({
+    hrMax: { athleteReported: { value: 190, measuredAt: NOW }, now: NOW },
+    hrRest: { morningReadings: [50], now: NOW },
+    now: NOW,
+  })!;
+  const zoneSet = buildZones(model, 'bike');
+  const [z1, , , , z5] = zoneSet.zones;
+  const withHr = (hr: number[], timeS?: number[]): ParsedActivity => ({
+    ...parsed,
+    streams: timeS ? { hr, timeS } : { hr },
+  });
+
+  it('bins the HR stream into the S-zones and weights them into internal_load', () => {
+    const easy = Math.floor((z1!.lower.bpm + z1!.upper.bpm) / 2);
+    // 120 easy samples at 1 Hz ⇒ 2 minutes of S1 ⇒ TRIMP 2 × weight 1.
+    const load = toActivityLoad(withHr(Array.from({ length: 120 }, () => easy)), zoneSet);
+    expect(load.time_in_s1_s).toBe(120);
+    expect(load.time_in_s2_s).toBe(0);
+    expect(load.time_in_s3_s).toBe(0);
+    expect(load.internal_load).toBeCloseTo(2);
+  });
+
+  it('costs more per minute for harder work (S3 weight > S1 weight)', () => {
+    const easy = Math.floor((z1!.lower.bpm + z1!.upper.bpm) / 2);
+    const hard = z5!.lower.bpm + 1;
+    const n = 600;
+    const easyLoad = toActivityLoad(withHr(Array.from({ length: n }, () => easy)), zoneSet).internal_load!;
+    const hardLoad = toActivityLoad(withHr(Array.from({ length: n }, () => hard)), zoneSet).internal_load!;
+    expect(hardLoad).toBeGreaterThan(easyLoad);
+  });
+
+  it('honours the sample time series rather than assuming 1 Hz', () => {
+    const easy = Math.floor((z1!.lower.bpm + z1!.upper.bpm) / 2);
+    // 5 s apart ⇒ 5 + 5 + 1 (final sample assumed) = 11 s, not 3.
+    expect(toActivityLoad(withHr([easy, easy, easy], [0, 5, 10]), zoneSet).time_in_s1_s).toBe(11);
+  });
+
+  it('stays null without a zone set — never a guessed zone system', () => {
+    const easy = Math.floor((z1!.lower.bpm + z1!.upper.bpm) / 2);
+    expect(toActivityLoad(withHr([easy, easy]), null)).toEqual({
+      internal_load: null,
+      time_in_s1_s: null,
+      time_in_s2_s: null,
+      time_in_s3_s: null,
+    });
+  });
+
+  it('stays null without an HR stream', () => {
+    expect(toActivityLoad({ ...parsed, streams: {} }, zoneSet).internal_load).toBeNull();
+  });
+
+  it('is written onto the activity row', () => {
+    const easy = Math.floor((z1!.lower.bpm + z1!.upper.bpm) / 2);
+    const row = toActivityRow('athlete-1', withHr([easy, easy, easy]), zoneSet);
+    expect(row.time_in_s1_s).toBe(3);
+    expect(row.internal_load).toBeGreaterThan(0);
+    expect(toActivityRow('athlete-1', parsed).internal_load).toBeNull(); // no zone set passed
+  });
+
+  it('accepts a persisted zone set and rejects a corrupt one', () => {
+    expect(zoneSetSchema.safeParse(JSON.parse(JSON.stringify(zoneSet))).success).toBe(true);
+    expect(zoneSetSchema.safeParse({ ...zoneSet, zones: [] }).success).toBe(false);
+    expect(zoneSetSchema.safeParse({ ...zoneSet, hrMax: null }).success).toBe(false);
   });
 });
 

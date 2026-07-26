@@ -26,3 +26,34 @@ export const ingestRequestSchema = z.object({
 });
 
 export type IngestRequest = z.infer<typeof ingestRequestSchema>;
+
+const zoneBoundarySchema = z.object({
+  bpm: z.number().finite(),
+  pctHRR: z.number().finite(),
+  pctHRmax: z.number().finite(),
+});
+
+/**
+ * A stored `athlete_zones.zones` payload (a `ZoneSet`).
+ *
+ * Written as jsonb, so it comes back untyped — and ingest turns these boundaries into
+ * `internal_load`/time-in-zone numbers that are then stored permanently. A bad boundary would
+ * silently mis-bin a whole session's HR, so it is validated rather than cast.
+ */
+export const zoneSetSchema = z.object({
+  mode: z.enum(['threshold_anchored', 'hrr_fallback']),
+  hrMax: z.number().finite().positive(),
+  hrRest: z.number().finite().positive(),
+  hrReserve: z.number().finite(),
+  zones: z
+    .array(
+      z.object({
+        id: z.enum(['Z1', 'Z2', 'Z3', 'Z4', 'Z5']),
+        name: z.string(),
+        lower: zoneBoundarySchema,
+        upper: zoneBoundarySchema,
+      }),
+    )
+    .nonempty(),
+  anchorConfidence: z.number().finite(),
+});

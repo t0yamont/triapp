@@ -13,22 +13,29 @@ import {
   addDaysISO,
   decouplingFromStreams,
   matchActivityToWorkout,
+  rollupToSZones,
+  timeInZones,
+  trimp,
   type ActivityMatch,
   type PlanSport,
+  type ZoneSet,
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
 import { packFloat32, packInt16, packLatLng, toByteaHex } from '../streams.js';
 import type { Tables, TablesInsert } from '../types.js';
+import { getZoneSetForSport } from './athleteModel.js';
+
+const SECONDS_PER_MINUTE = 60;
 
 // ── Pure mappers (unit-tested) ───────────────────────────────────────────────
 
 /**
  * Aerobic decoupling for this session (§11), computed at ingest.
  *
- * This is the one load-adjacent column derivable without an athlete model: decoupling
- * compares HR-to-intensity *within* the session, so it needs no threshold. TSS and TRIMP do
- * need thresholds (CP/LT2/CSS, and HR zones from hrMax+hrRest), none of which are persisted
- * yet — so those columns stay null rather than being filled with a guessed baseline.
+ * This needs no athlete model at all: decoupling compares HR-to-intensity *within* the
+ * session, so it needs no threshold. TRIMP does need zones, which now exist — see
+ * `toActivityLoad`. TSS still needs CP/CS/CSS, which no field test has produced yet, so
+ * `external_load` stays null rather than being filled with a guessed threshold.
  *
  * An invalid reading is stored, not discarded: the percentage is still evidence, and
  * `decoupling_valid` is exactly how §11.1 says to mark it untrustworthy.
@@ -40,10 +47,48 @@ export function toActivityDecoupling(a: ParsedActivity): { pct: number | null; v
   return result ? { pct: result.decouplingPct, valid: result.valid } : { pct: null, valid: false };
 }
 
-export function toActivityRow(athleteId: string, a: ParsedActivity): TablesInsert<'activities'> {
+/**
+ * Time-in-zone and TRIMP for this activity (§3.4 accounting, §5.1 internal load), binned at
+ * ingest while the parsed HR samples are still in hand.
+ *
+ * Ingest-time is the cheap place to do this: stored streams are bytea-packed and there is no
+ * unpacker, so re-deriving these later would mean writing one. Binning here also means the
+ * zones used are the ones in force *when the session happened*, which is what §3.1 wants.
+ *
+ * Null when there is no HR stream or no zone set (no athlete model yet, or a sport that has
+ * none — see `getZoneSetForSport`). Null is honest; a guessed zone system would make
+ * `internal_load` look measured when it isn't.
+ */
+export function toActivityLoad(
+  a: ParsedActivity,
+  zoneSet: ZoneSet | null,
+): Pick<TablesInsert<'activities'>, 'internal_load' | 'time_in_s1_s' | 'time_in_s2_s' | 'time_in_s3_s'> {
+  const binned =
+    zoneSet && a.streams.hr ? timeInZones(a.streams.hr, zoneSet, { timeS: a.streams.timeS }) : null;
+  if (!binned) return { internal_load: null, time_in_s1_s: null, time_in_s2_s: null, time_in_s3_s: null };
+
+  const seconds = rollupToSZones(binned.secondsPerZone);
+  return {
+    internal_load: trimp({
+      S1: seconds.S1 / SECONDS_PER_MINUTE,
+      S2: seconds.S2 / SECONDS_PER_MINUTE,
+      S3: seconds.S3 / SECONDS_PER_MINUTE,
+    }),
+    time_in_s1_s: Math.round(seconds.S1),
+    time_in_s2_s: Math.round(seconds.S2),
+    time_in_s3_s: Math.round(seconds.S3),
+  };
+}
+
+export function toActivityRow(
+  athleteId: string,
+  a: ParsedActivity,
+  zoneSet: ZoneSet | null = null,
+): TablesInsert<'activities'> {
   const decoupling = toActivityDecoupling(a);
   return {
     athlete_id: athleteId,
+    ...toActivityLoad(a, zoneSet),
     decoupling_pct: decoupling.pct,
     decoupling_valid: decoupling.valid,
     sport: a.sport,
@@ -147,8 +192,17 @@ async function findDuplicatePrimary(
   return null;
 }
 
-async function insertActivity(client: TriflowClient, athleteId: string, a: ParsedActivity): Promise<string> {
-  const { data, error } = await client.from('activities').insert(toActivityRow(athleteId, a)).select('id').single();
+async function insertActivity(
+  client: TriflowClient,
+  athleteId: string,
+  a: ParsedActivity,
+  zoneSet: ZoneSet | null,
+): Promise<string> {
+  const { data, error } = await client
+    .from('activities')
+    .insert(toActivityRow(athleteId, a, zoneSet))
+    .select('id')
+    .single();
   if (error || !data) throw new Error(`ingest: insert activity failed: ${error?.message}`);
   const activityId = data.id;
 
@@ -185,9 +239,12 @@ export async function upsertParsedActivity(
     if (existing) return { activityId: existing, outcome: 'idempotent_noop' };
   }
 
-  // 2. Cross-provider dedup (§7).
-  const dup = await findDuplicatePrimary(client, athleteId, a);
-  const newId = await insertActivity(client, athleteId, a);
+  // 2. Cross-provider dedup (§7), and the zones this session's HR is binned into (§3.4/§5.1).
+  const [dup, zoneSet] = await Promise.all([
+    findDuplicatePrimary(client, athleteId, a),
+    getZoneSetForSport(client, athleteId, a.sport),
+  ]);
+  const newId = await insertActivity(client, athleteId, a, zoneSet);
   if (!dup) return { activityId: newId, outcome: 'inserted' };
 
   // 3. Keep the richer record as primary; mark the other as a duplicate. Never hard-delete.
@@ -213,8 +270,6 @@ export function activityLocalDate(startTime: string, localTzOffsetMin: number): 
   const d = String(local.getUTCDate()).padStart(2, '0');
   return `${local.getUTCFullYear()}-${m}-${d}`;
 }
-
-const SECONDS_PER_MINUTE = 60;
 
 /**
  * Link an ingested activity to the planned session it completed, if one is plausible.

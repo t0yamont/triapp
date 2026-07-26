@@ -25,7 +25,8 @@ import {
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
 import type { Json } from '../database.types.js';
-import type { Tables } from '../types.js';
+import { zoneSetSchema } from '../schemas.js';
+import type { Enums, Tables } from '../types.js';
 
 /** Sports the app builds HR zones for. Strength and brick inherit from their parent sport. */
 const ZONED_SPORTS: Sport[] = ['run', 'bike', 'swim'];
@@ -202,4 +203,31 @@ export async function getCurrentZones(
     .eq('athlete_id', athleteId)
     .is('valid_to', null);
   return data ?? [];
+}
+
+/**
+ * The HR zone set in force for one sport, or null when there isn't one.
+ *
+ * Null is the normal case for `brick`/`strength`/`other` (only [[ZONED_SPORTS]] get zones) and
+ * for an athlete with no model yet — callers must treat it as "not computable", never guess a
+ * default zone system.
+ */
+export async function getZoneSetForSport(
+  client: TriflowClient,
+  athleteId: string,
+  sport: Enums<'sport'>,
+): Promise<ZoneSet | null> {
+  if (!ZONED_SPORTS.includes(sport as Sport)) return null;
+  const { data } = await client
+    .from('athlete_zones')
+    .select('zones')
+    .eq('athlete_id', athleteId)
+    .eq('sport', sport)
+    .eq('modality', 'hr')
+    .is('valid_to', null)
+    .maybeSingle();
+  if (!data) return null;
+
+  const parsed = zoneSetSchema.safeParse(data.zones);
+  return parsed.success ? parsed.data : null;
 }

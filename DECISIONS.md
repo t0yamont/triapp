@@ -776,3 +776,47 @@ hand-updated to match, since regenerating needs a live connection (`D-TYPEGEN`).
 > The migration must be applied to the hosted project before anything persists a `css_test` or
 > `riegel_prediction` anchor. The HR anchors written today use pre-existing values, so they
 > work either way.
+
+---
+
+## D-TIME-IN-ZONE-INGEST — time-in-zone and TRIMP are binned at ingest
+
+**Status:** implemented. **Spec:** §3.1, §3.4, §5.1.
+
+`D-ATHLETE-MODEL` persisted the zones; this spends them. `activities.internal_load`,
+`time_in_s1_s`, `time_in_s2_s` and `time_in_s3_s` are now written for every uploaded activity
+that has an HR stream and a zone set — the first *measured* load in the product.
+
+**Binned at ingest, not on read.** Stored streams are bytea-packed and `streams.ts` has
+`packInt16`/`packFloat32` but **no unpacker**, so computing this later would mean writing one
+plus a recompute job. Ingest has the parsed samples already in hand. It also gets the
+physiology right: the zones applied are the ones in force *when the session happened*, which is
+exactly why `athlete_zones` is versioned rather than overwritten.
+
+**The cost of that choice, stated plainly: there is no backfill.** An activity uploaded before
+the athlete's first check-in has no model, so no zone set, so null load columns — permanently,
+until a recompute path exists. Null is the honest value; binning against a guessed zone system
+would make `internal_load` *look* measured. This is the same trade `D-HRREST-POP` leaves open:
+without a population resting-HR default, an athlete who has never checked in has no zones.
+
+**Boundaries are `[lower, upper)` with the top zone inclusive, and out-of-range HR is clamped,
+not dropped.** A sample exactly on a boundary lands in the higher zone consistently, so nothing
+is double-counted. A HR above the modelled HRmax is genuinely maximal work (and a hint the
+HRmax anchor is low); one below modelled resting HR is genuinely easy. Discarding either would
+silently shorten the session, which is worse than binning it at the edge.
+
+**Sample duration is the gap to the next sample, capped.** A device recording at 5 s, or pausing
+mid-session, must not be read as 1 Hz. A gap longer than `maxSampleGapS` (default 60 s) counts
+only that cap — otherwise a paused device credits hours of Z1 nobody trained. Dropout samples
+(zero/non-finite HR) are skipped entirely.
+
+**The stored zone set is Zod-validated on read, not cast.** `ZonesCard` casts its jsonb
+(`z.zones as unknown as ZoneSet`) because a wrong render is visible and harmless. Ingest turns
+those boundaries into numbers that are then stored permanently, so `zoneSetSchema` validates
+them and a corrupt set yields null load rather than a silently mis-binned session.
+
+**Not done here:** `activities.session_goal_zone` (that's the *plan's* goal for the session, so
+it belongs to the link step, not the stream), `external_load`/TSS (still needs CP/CS/CSS from a
+field test), and the Analytics swap from planned to measured load — see the note in
+`live-analytics.ts`: it needs a third honest `loadBasis` for the mixed window and days keyed by
+`activityLocalDate`, not UTC.

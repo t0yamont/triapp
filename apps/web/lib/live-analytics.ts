@@ -10,13 +10,16 @@
  *    ingest (§11), no athlete model needed.
  *  - **Distribution** is genuinely the athlete's, from the zones of the sessions they
  *    actually completed.
- *  - **CTL/ATL/TSB** are computed from the *planned* load of completed sessions, because
- *    measured load (TSS/TRIMP) needs thresholds — CP/LT2/CSS and HR zones — that nothing
- *    persists yet. The shape and trend are right; the units are "what the plan asked for",
- *    not "what the body received". `loadBasis` says so, and the UI must keep saying so.
+ *  - **CTL/ATL/TSB** are still computed from the *planned* load of completed sessions. TRIMP
+ *    is now measured at ingest (`activities.internal_load`, from HR zones), but only for
+ *    activities uploaded *after* the athlete model existed — so a 12-week window is normally
+ *    part measured, part not. The shape and trend are right; the units are "what the plan
+ *    asked for", not "what the body received". `loadBasis` says so, and the UI must keep
+ *    saying so.
  *
- * ponytail: swap `loadBasis` to 'measured' the moment activities carry `internal_load` —
- * `fitnessSeries` itself doesn't change, only where the daily numbers come from.
+ * ponytail: switching to `internal_load` is a swap of where the daily numbers come from
+ * (`fitnessSeries` itself doesn't change) — but it needs a third honest `loadBasis` value for
+ * the mixed window, and days keyed by `activityLocalDate`, not by UTC.
  */
 
 import { getActivitiesInRange, getActivePlan, getPlanWeeks, getWorkoutsInRange } from '@ironflow/api-client';

@@ -820,3 +820,107 @@ it belongs to the link step, not the stream), `external_load`/TSS (still needs C
 field test), and the Analytics swap from planned to measured load — see the note in
 `live-analytics.ts`: it needs a third honest `loadBasis` for the mixed window and days keyed by
 `activityLocalDate`, not UTC.
+
+---
+
+## D-ACTIVITY-LIST-LIVE — the activities list reads the athlete's own uploads
+
+**Status:** implemented. **Spec:** §5.1, `06-UX`; hard rules #6, #8.
+
+The upload control was live and the list beneath it was **fiction**: `activities-demo.ts` rendered
+four fabricated sessions while `getActivitiesInRange` sat in `api-client` with no callers. An
+athlete could upload a file, have it parsed, deduped, matched to a planned session and its load
+measured (`D-TIME-IN-ZONE-INGEST`) and see none of it. `lib/live-activities.ts` +
+`useLiveActivities()` close that loop, following the `live-plan.ts` pattern: null when there is
+nothing live, so the page falls back to the sample rather than showing a broken state.
+
+**A load figure is `number | null`, and the row prints "—", not `0`.** This is the whole design
+problem of the step. `external_load` (TSS) is null for everyone — it needs CP/CS/CSS. `internal_load`
+is null for anything uploaded before the athlete's model existed. `perceived_load` is null always,
+because **nothing in the app collects an RPE**. A zero would be a claim that the session was
+effortless; the dash says "not computable", which is true and is what §2.4's honesty discipline
+implies for load as much as for anchors.
+
+**The list total is TRIMP only — never a sum across metrics.** TSS and TRIMP are different
+scales; adding them produces a number that means nothing. When no activity in the window carries
+a TRIMP, the chip omits the load figure rather than showing `0`.
+
+### A real bug this surfaced: `loadsDisagree` was invented, and cited the spec for it
+
+`activities-demo.ts` carried `loadsDisagree()` — "the spread exceeds ~20% of the largest
+(§5.1, F11)" — putting a warning triangle on rows. **§5.1 says no such thing.** The actual rule is
+`loadDisagreement = |z(external) − z(internal)|` against the athlete's own rolling distribution,
+flagged above **1.5 SD**. The 20%-spread heuristic was fabricated, mis-cited to the spec, and —
+worse — with null figures coerced to zero it would have flagged **every real activity** as
+disagreeing.
+
+Deleted rather than ported. It is also **not computable today**: a disagreement needs *both*
+metrics, and TSS is null for everyone, so the honest §5.1 version can only be written once a
+field test produces CP/CS/CSS. `activities.load_disagreement` stays null meanwhile. When it is
+built it belongs in `physio/load/`, with the 1.5 SD threshold in `constants.ts` cited to
+REFERENCES.md — not in an app file.
+
+**`unplanned` replaced the demo's decorative `partial` badge** for live rows: `planned_workout_id
+is null` is real, available without a join, and useful ("this wasn't in your plan"). Deriving
+"partial" properly needs the linked workout's planned duration — a join this list doesn't need.
+
+**Hard rule #8 is tested, not just respected.** A row's day comes from `activityLocalDate` (the
+per-activity `local_tz_offset_min` captured at ingest), never the UTC prefix of `start_time`. The
+mapper is pure and covered across a late-evening session, one west of UTC, and **the Europe/Madrid
+DST boundary of 25 Oct 2026** — the case CLAUDE.md explicitly asks for.
+
+**`apps/web` gained a test runner** (`vitest`, `lib/**/*.test.ts` only) — it had none, so
+`live-plan.ts`'s mappers have never been tested. Components stay untested on purpose: they are
+presentation glue, whereas "which local day is this" and "absent or zero" are exactly the logic
+that fails silently.
+
+---
+
+## D-SRPE-CAPTURE — the athlete can finally say how hard it felt
+
+**Status:** implemented. **Spec:** §5.1 (Foster et al. 2001, `REFERENCES.md`).
+
+§5.1 specifies three parallel load models and insists on computing all three, because they
+disagree in informative ways. Two are sensor-bound: TSS needs CP/CS/CSS, TRIMP needs HR plus
+zones. **sRPE needs nothing but a number from the athlete — and nothing in the app had ever asked
+for one.** `activities.rpe` and `perceived_load` were null on every row, so the cheapest of the
+three metrics was the only one with no path to existing, and §5.1's cross-check had nothing to
+compare.
+
+`setActivityRpe` (api-client) + `useActivityRatings` + `RpeControl` close it: rate a session from
+its row in [[Activities and Settings]], and `perceived_load = srpe(rpe, minutes)` is stored
+alongside the rating.
+
+**Duration comes from the stored activity, never the caller.** The athlete rates effort; the app
+already knows how long they went for. This also keeps `rpe` and `perceived_load` guaranteed
+consistent, since one is derived from the other in the same write.
+
+**`perceivedLoadFor` is pure and rejects a fractional RPE.** `rpe` is a `smallint`, so 6.5 would be
+rounded by Postgres while `perceived_load` kept the unrounded product — the two would then
+disagree permanently, with nothing to reveal it. 0 is rejected too: on the CR10 scale 0 is *rest*,
+and this rates a session that happened.
+
+**The scale is CR10 as session-RPE actually defines it**, with verbal anchors only on the values
+Foster anchors (1 very very easy, 2 easy, 3 moderate, 4 somewhat hard, 5 hard, 7 very hard,
+10 maximal). The gaps are deliberately unlabelled — inventing words for 6, 8 and 9 would change
+what the athlete is being asked. The control and the page footer both say **"whole session"**: an
+athlete who rates their hardest interval inflates the load on exactly the sessions the plan most
+needs to read correctly.
+
+**Ratable from any row, not just after upload.** Putting the prompt only in the upload result
+would leave `perceived_load` null forever on every activity the athlete didn't rate within seconds
+of uploading — including everything already ingested. This forced the list row to stop being one
+giant `<button>`: a button inside a button is invalid and unreachable by keyboard, so the row is
+now a container whose *title* is the navigation target.
+
+**One hook for the list, not one per row.** `useSupabase()` memoises per component, so a hook
+inside each row would construct a browser client and its auth listener per activity. The page owns
+`useActivityRatings()` and rows are dumb. (The per-component memo is a pre-existing sharp edge in
+`lib/supabase.ts` worth turning into a context if more list-level writes appear.)
+
+**No audit row**, for the same reason as `D-ACTIVITY-LINK`: hard rule #10 covers plan *mutations*,
+and this records what the athlete felt rather than changing what was asked of them.
+
+**Verified reachable under RLS:** `own_rows on activities` is `for all` with
+`athlete_id = auth.uid()`, so the anon-key client may update its own rows; no service-role path is
+needed.

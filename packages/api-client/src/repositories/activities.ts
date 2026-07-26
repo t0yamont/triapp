@@ -14,6 +14,7 @@ import {
   decouplingFromStreams,
   matchActivityToWorkout,
   rollupToSZones,
+  srpe,
   timeInZones,
   trimp,
   type ActivityMatch,
@@ -341,6 +342,65 @@ export async function linkActivityToPlannedWorkout(
   }
 
   return match;
+}
+
+// ── Perceived load: the one load model that needs no sensor ─────────────────
+
+/**
+ * sRPE for a session the athlete has just rated (§5.1, Foster et al. 2001).
+ *
+ * Pure, so the validation lives in one testable place. The RPE must be a **whole number** —
+ * `srpe()` accepts any 0–10 value and the `rpe` column is a `smallint`, so a fractional rating
+ * would be silently rounded on the way into the database while `perceived_load` kept the
+ * unrounded product. The two would then disagree forever.
+ *
+ * 0 on the CR10 scale means *rest*, so it is rejected here: this rates a session that happened.
+ */
+export function perceivedLoadFor(rpe: number, durationS: number): number {
+  if (!Number.isInteger(rpe) || rpe < 1 || rpe > 10) {
+    throw new Error(`RPE must be a whole number on the 1–10 CR10 scale; got ${rpe}`);
+  }
+  return srpe({ rpe, durationMin: durationS / SECONDS_PER_MINUTE });
+}
+
+/**
+ * Record the athlete's rating of a session, writing both `rpe` and the `perceived_load` derived
+ * from it. Returns the stored sRPE.
+ *
+ * **Deliberately writes no `plan_mutations` row**, for the same reason
+ * `linkActivityToPlannedWorkout` doesn't: hard rule #10 covers plan *mutations*, and this records
+ * what the athlete felt rather than changing what was asked of them. The plan is untouched.
+ *
+ * sRPE is the only one of §5.1's three load models that needs no sensor and no threshold — and
+ * it was the only one with no capture path anywhere in the app, so `perceived_load` was null on
+ * every row and the §5.1 cross-check between metrics had nothing to compare.
+ */
+export async function setActivityRpe(
+  client: TriflowClient,
+  athleteId: string,
+  activityId: string,
+  rpe: number,
+): Promise<number> {
+  const { data, error } = await client
+    .from('activities')
+    .select('duration_s')
+    .eq('id', activityId)
+    .eq('athlete_id', athleteId)
+    .single();
+  if (error) throw error;
+
+  // Duration comes from the stored activity, never the caller: the athlete rates effort, and
+  // the app already knows how long they went for.
+  const perceivedLoad = perceivedLoadFor(rpe, data.duration_s);
+
+  const { error: writeError } = await client
+    .from('activities')
+    .update({ rpe, perceived_load: perceivedLoad })
+    .eq('id', activityId)
+    .eq('athlete_id', athleteId);
+  if (writeError) throw writeError;
+
+  return perceivedLoad;
 }
 
 /** The athlete's activities in [fromDate, toDate], newest first. Excludes deduped copies. */

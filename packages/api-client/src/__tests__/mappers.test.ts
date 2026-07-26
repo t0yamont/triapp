@@ -4,7 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { readPublicEnv, readServiceEnv } from '../env.js';
 import { ingestRequestSchema, zoneSetSchema } from '../schemas.js';
 import { packInt16, toByteaHex } from '../streams.js';
-import { toActivityLoad, toActivityRow, toLapRows, toStreamRow } from '../repositories/activities.js';
+import {
+  perceivedLoadFor,
+  toActivityLoad,
+  toActivityRow,
+  toLapRows,
+  toStreamRow,
+} from '../repositories/activities.js';
 
 const parsed: ParsedActivity = {
   sport: 'bike',
@@ -116,6 +122,28 @@ describe('time-in-zone and TRIMP at ingest', () => {
     expect(zoneSetSchema.safeParse(JSON.parse(JSON.stringify(zoneSet))).success).toBe(true);
     expect(zoneSetSchema.safeParse({ ...zoneSet, zones: [] }).success).toBe(false);
     expect(zoneSetSchema.safeParse({ ...zoneSet, hrMax: null }).success).toBe(false);
+  });
+});
+
+describe('perceivedLoadFor', () => {
+  it('is RPE × whole minutes (§5.1, Foster)', () => {
+    expect(perceivedLoadFor(7, 3600)).toBe(420); // 7 × 60 min
+    expect(perceivedLoadFor(4, 2700)).toBe(180); // 4 × 45 min
+  });
+
+  it('rejects a fractional RPE — the column is a smallint and the two would drift apart', () => {
+    expect(() => perceivedLoadFor(6.5, 3600)).toThrow(/whole number/);
+  });
+
+  it('rejects 0, which on the CR10 scale means rest, and anything above 10', () => {
+    expect(() => perceivedLoadFor(0, 3600)).toThrow();
+    expect(() => perceivedLoadFor(11, 3600)).toThrow();
+    expect(() => perceivedLoadFor(-1, 3600)).toThrow();
+  });
+
+  it('accepts both ends of the scale', () => {
+    expect(perceivedLoadFor(1, 3600)).toBe(60);
+    expect(perceivedLoadFor(10, 3600)).toBe(600);
   });
 });
 

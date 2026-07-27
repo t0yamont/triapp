@@ -12,3 +12,4 @@ export { parseFit } from './parse/fit.js';
 export { parseGpx } from './parse/gpx.js';
 export { parseTcx } from './parse/tcx.js';
 export { fitCrc } from './parse/fit-crc.js';
+export * from './encode/fitWorkout.js';

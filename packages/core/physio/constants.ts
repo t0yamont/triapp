@@ -206,6 +206,16 @@ export const HEAT_BLOCK_END_DAYS_BEFORE_RACE = [5, 10] as const;
 // Passive post-session exposure (sauna / hot bath): 20–30 min, §7.4. Preferred because it
 // does not compromise prescribed training intensity.
 export const HEAT_PASSIVE_MINUTES = 25;
+/**
+ * How far a race's expected wet-bulb must exceed the athlete's training norm before a heat
+ * block is prescribed. §7.4 says "a defined margin" and never defines it, so this is a
+ * **product policy default**, not a cited physiological threshold (`D-HEAT-MARGIN`).
+ *
+ * Set low deliberately: the risks are asymmetric. The preferred intervention is 20–30 min of
+ * passive sauna that costs no training quality, while an unacclimated athlete in a hot race
+ * risks a bad day at best and heat illness at worst. Callers may override per athlete.
+ */
+export const HEAT_TRIGGER_MARGIN_C = 3;
 
 // ── Strength — Eihara et al. 2022; Llanos-Lagos et al. 2024/2025; Zanini 2025 (§7.3) ─
 export const STRENGTH_SESSIONS_PER_WEEK = { base: 2, build: 2, peak: 1, taper: 1 } as const;

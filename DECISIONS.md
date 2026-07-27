@@ -1202,3 +1202,59 @@ modality without a number.
 `IF = CSS / actual`, so swimming *easier* than CSS **inflates** the score. Implemented
 spec-literal with the flag carried into `toSwimTss`; if that question resolves the other way,
 every stored swim TSS changes with it.
+
+---
+
+## Five open questions, resolved (27 July 2026)
+
+The owner delegated these. Each is recorded with the reasoning so they can be reversed on
+evidence rather than re-argued from scratch.
+
+### 1. `D-HEAT-MARGIN` — resolved: 3 °C wet-bulb, as product policy
+
+§7.4 prescribes a heat block when race conditions exceed the athlete's norm "by a defined
+margin" and never defines it. It is now `HEAT_TRIGGER_MARGIN_C = 3`, a **product-policy default**
+(explicitly not a cited physiological threshold), overridable per athlete.
+
+**Why 3, and why a default at all.** Leaving it a required input meant the UI would have to ask
+an athlete a question no athlete can answer. The value is set low because the risks are
+asymmetric: the preferred intervention is 20–30 min of passive sauna that costs no training
+quality, while an unacclimated athlete in a hot race risks a bad day at best and heat illness at
+worst. Over-prescribing is cheap; under-prescribing is not. Revisit with a citation if one exists.
+
+### 2. `D-SWIM-IF` — resolved: the spec formula is inverted; implemented correctly
+
+§5.1 writes swim `IF = CSS speed / actual speed`. Implemented as `actual / CSS`, matching every
+other sport.
+
+**Why deviate.** The literal formula makes IF *rise* as the athlete swims easier, so a recovery
+swim would score more load than a threshold set — the arithmetic contradicts the meaning of
+"intensity factor", and the resulting sTSS would corrupt CTL/ATL for anyone who swims. F6 pins
+only the cubic exponent, not the value, so no golden fixture moves. This is recorded as a
+**spec erratum**, not a licence to reinterpret other formulas.
+
+### 3. Minimum plan weeks / entry requirements — signed off as product policy
+
+`PLAN_WEEKS_BY_EVENT` and `EVENT_ENTRY_REQUIREMENTS` stand as implemented (cross-checked against
+MyProCoach, Campfire Endurance, IRONMAN and Triathlete). They remain the only constants without a
+REFERENCES.md citation and stay flagged as convention. They gate warnings and advice, never
+safety limits — a wrong value produces worse advice, not an unsafe plan — so convention is an
+acceptable basis. Any coach review should start here.
+
+### 4. `D-G2-PEAK` — confirmed
+
+G2 compares against the athlete's recent *peak* long session, not the immediately preceding week.
+The literal per-week reading contradicts G4, which mandates a recovery-week volume cut and so
+guarantees a bounce-back that G2 would flag; two mandatory guardrails cannot contradict. The
+injury vector is a **new** longest session, not a return to one already handled. Unchanged.
+
+### 5. Readiness-to-start gate — resolved: warn and prepare, never block
+
+`assessStartReadiness` stays advisory. An athlete below an event's entry requirement gets a
+preparation block and a plain explanation, and is never prevented from choosing the race.
+
+**Why.** Blocking is both paternalistic and ineffective — the baseline is self-reported, so a
+blocked athlete simply re-enters a better number and the engine ends up planning from a fiction
+*and* has lost their trust. Warning keeps the honest answer valuable, which is what makes the
+rest of the adaptive system work. It also matches the framing already in the product: the
+shortfall is the plan doing its job, not the athlete being behind.

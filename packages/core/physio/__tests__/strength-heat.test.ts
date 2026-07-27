@@ -114,3 +114,17 @@ describe('Heat adaptation block (§7.4)', () => {
     expect(b.exposures).toBe(10);
   });
 });
+
+describe('Heat trigger margin default (D-HEAT-MARGIN)', () => {
+  const noMargin = { daysToRace: 40, raceWbgtC: 28, athleteNormWbgtC: 16 };
+
+  it('applies the product-policy margin when the caller supplies none', () => {
+    expect(planHeatBlock(noMargin).prescribed).toBe(true); // 12°C over, well past the 3°C default
+    expect(planHeatBlock({ ...noMargin, raceWbgtC: 18 }).prescribed).toBe(false); // 2°C over
+    expect(planHeatBlock({ ...noMargin, raceWbgtC: 19 }).prescribed).toBe(true); // 3°C — at the margin
+  });
+
+  it('still honours an explicit override', () => {
+    expect(planHeatBlock({ ...noMargin, raceWbgtC: 19, triggerMarginC: 6 }).prescribed).toBe(false);
+  });
+});

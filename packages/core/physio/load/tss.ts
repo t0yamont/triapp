@@ -37,14 +37,15 @@ export function runTss(params: { durationS: number; gapSpeed: number; lt2Speed: 
 /**
  * Swim TSS: (duration_s × IF³) / 3600 × 100, cubic exponent (power ∝ velocity³).
  *
- * ⚠️ SPEC CONCERN (DECISIONS.md D-SWIM-IF): §5.1 defines swim `IF = CSS speed / actual
- * speed`, which is INVERTED relative to run/bike (`actual / threshold`) and inflates load
- * when the athlete swims *easier* than CSS. Implemented as written pending clarification;
- * do not "fix" silently. F6 does not pin the expected number, only the cubic exponent.
+ * RESOLVED SPEC DEVIATION (DECISIONS.md `D-SWIM-IF`): §5.1 writes swim `IF = CSS speed /
+ * actual speed`, which is inverted — it makes IF rise as the athlete swims *easier*, so an
+ * easy recovery swim would score more load than a threshold set. Implemented the way every
+ * other sport defines intensity factor, `actual / threshold`, so IF < 1 below CSS and > 1
+ * above it. F6 pins only the cubic exponent, not the number, so nothing golden moves.
  */
 export function swimTss(params: { durationS: number; cssSpeed: number; actualSpeed: number }): TssResult {
   const { durationS, cssSpeed, actualSpeed } = params;
-  const intensityFactor = cssSpeed / actualSpeed; // per §5.1 literal — see concern above
+  const intensityFactor = actualSpeed / cssSpeed;
   const tss = (durationS * intensityFactor ** 3) / 3600 * 100;
   return { tss, intensityFactor };
 }

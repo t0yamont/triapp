@@ -20,11 +20,20 @@ describe('External load — TSS (§5.1, F6)', () => {
 
   it('swim sTSS applies the cubic exponent (value not pinned by the fixture)', () => {
     const { tss, intensityFactor } = swimTss(f6.swim);
-    // IF per §5.1 literal = CSS/actual = 1.20/1.05 (see DECISIONS.md D-SWIM-IF)
-    expect(intensityFactor).toBeCloseTo(1.2 / 1.05, 6);
+    // IF = actual / CSS, like every other sport (D-SWIM-IF resolves the inverted §5.1 formula).
+    expect(intensityFactor).toBeCloseTo(1.05 / 1.2, 6);
     // cubic: (2400 × IF³) / 3600 × 100
     const expected = (f6.swim.durationS * intensityFactor ** 3) / 3600 * 100;
     expect(tss).toBeCloseTo(expected, 6);
+  });
+
+  it('swim IF reads below 1 when easier than CSS and above it when harder', () => {
+    const easy = swimTss({ durationS: 1800, cssSpeed: 1.2, actualSpeed: 1.0 });
+    const hard = swimTss({ durationS: 1800, cssSpeed: 1.2, actualSpeed: 1.35 });
+    expect(easy.intensityFactor).toBeLessThan(1);
+    expect(hard.intensityFactor).toBeGreaterThan(1);
+    // The whole point of the correction: an easy swim must not out-score a hard one.
+    expect(easy.tss).toBeLessThan(hard.tss);
   });
 });
 

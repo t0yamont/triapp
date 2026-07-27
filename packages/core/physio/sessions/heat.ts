@@ -12,6 +12,7 @@
 
 import {
   HEAT_BLOCK_END_DAYS_BEFORE_RACE,
+  HEAT_TRIGGER_MARGIN_C,
   HEAT_EXPOSURES_RANGE,
   HEAT_EXPOSURE_MIN_MINUTES,
   HEAT_PASSIVE_MINUTES,
@@ -25,10 +26,10 @@ export interface HeatBlockInput {
   athleteNormWbgtC: number;
   /**
    * How far the race must exceed the athlete's norm before a block is prescribed, °C.
-   * §7.4 says "a defined margin" without giving a value, so it is supplied by the caller
-   * rather than invented here (see DECISIONS.md D-HEAT-MARGIN).
+   * Defaults to the product policy in `HEAT_TRIGGER_MARGIN_C` (§7.4 never defines the margin
+   * — see DECISIONS.md `D-HEAT-MARGIN`); override per athlete when there's reason to.
    */
-  triggerMarginC: number;
+  triggerMarginC?: number;
   /** False when the athlete has no sauna/hot-bath access — the block becomes active sessions. */
   passiveAvailable?: boolean;
 }
@@ -66,7 +67,7 @@ const NOT_PRESCRIBED = (reasonCode: string, reasonText: string): HeatBlock => ({
  */
 export function planHeatBlock(input: HeatBlockInput): HeatBlock {
   const excess = input.raceWbgtC - input.athleteNormWbgtC;
-  if (excess < input.triggerMarginC) {
+  if (excess < (input.triggerMarginC ?? HEAT_TRIGGER_MARGIN_C)) {
     return NOT_PRESCRIBED(
       'HEAT_NOT_NEEDED',
       'Race conditions are close enough to what you already train in — no heat block needed.',

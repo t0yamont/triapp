@@ -33,3 +33,36 @@ export function packLatLng(pairs: [number, number][]): Uint8Array {
   });
   return new Uint8Array(dv.buffer);
 }
+
+// ── Reading them back ────────────────────────────────────────────────────────
+// Packing existed from the first ingest; nothing ever unpacked, so streams were write-only —
+// which is why no screen could show a trace and no job could re-read one. Two consumers now:
+// the activity detail view and the nightly mean-max curve.
+
+/** PostgREST returns bytea as `\x…` hex. */
+export function fromByteaHex(hex: string): Uint8Array {
+  const body = hex.startsWith('\\x') ? hex.slice(2) : hex;
+  const out = new Uint8Array(body.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(body.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+const view = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+export function unpackFloat32(hex: string | null): number[] {
+  if (!hex) return [];
+  const dv = view(fromByteaHex(hex));
+  return Array.from({ length: dv.byteLength / 4 }, (_, i) => dv.getFloat32(i * 4, true));
+}
+
+export function unpackInt16(hex: string | null): number[] {
+  if (!hex) return [];
+  const dv = view(fromByteaHex(hex));
+  return Array.from({ length: dv.byteLength / 2 }, (_, i) => dv.getInt16(i * 2, true));
+}
+
+export function unpackLatLng(hex: string | null): [number, number][] {
+  if (!hex) return [];
+  const dv = view(fromByteaHex(hex));
+  return Array.from({ length: dv.byteLength / 8 }, (_, i) => [dv.getFloat32(i * 8, true), dv.getFloat32(i * 8 + 4, true)]);
+}

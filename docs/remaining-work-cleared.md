@@ -119,6 +119,40 @@ landed; the fourth had a lazier fix than its own comment proposed.
   a dashboard showing an empty plan with no way out. Deleting the header undoes all of it via the
   cascade: smaller and clearer than a plpgsql RPC, same failure removed.
 
+## 7. Settings told every athlete somebody else's physiology
+
+Found by asking "is it ready?" rather than assuming. Three blocks of demo constants were still
+rendering as though measured: **five invented threshold anchors** with confidence dots and "field
+test · 12 days ago"; a **Garmin connection claiming to have synced two hours ago**; and a profile
+form pre-filled **"Sample Athlete"** whose Save did nothing, so an athlete could fix their timezone
+and watch the plan keep computing days in the wrong zone. **Sign out signed nothing out** — nobody
+could log out of an account holding their health data.
+
+All now read and write the athlete's own rows. Two dead controls became real rather than deleted:
+**Send to watch** reaches `encodeFitWorkout`, written and tested since Phase 7 with no caller
+anywhere; **Add a race** means a race can be entered after onboarding, which it could not be.
+"Move to another day" links to the calendar, which already does week repair with the guardrail
+check and the audit row.
+
+Two E2E tests now guard it: one asserts the invented strings are absent and the empty state shows,
+the other that every settings control is wired to a real path. The first caught a fourth instance
+after the page was fixed — the sidebar showed everyone as "Sample athlete".
+
+## 8. Verified against a real database
+
+Every database claim here had been asserted against a fake client, which proves the logic and
+nothing about whether the schema agrees. Against a real Postgres 16:
+
+- All seven migrations apply; RLS isolation still passes with the new column.
+- Both recompute `ON CONFLICT` targets have matching primary keys — without them the upsert is a
+  runtime error no unit test would have caught.
+- The anchor types and test protocols the new code writes pass their check constraints.
+- **A recompute preserves the athlete's check-in** — hrv 71 / readiness 63 intact while CTL moved
+  42.1 → 43.9. That was the load-bearing claim behind "the upsert names only derived columns".
+- **Erasure**: 15 rows across 21 tables, including the three child tables with no `athlete_id`,
+  all gone after deleting one `profiles` row — and `auth.users` survives, which is exactly why
+  `/api/account` exists. Repeatable as `supabase/tests/erasure_cascade.sql`.
+
 ---
 
 ## What is still left, and why
@@ -143,8 +177,9 @@ pnpm typecheck                              5/5 successful
 pnpm --filter @ironflow/core test:coverage  511 tests, physio 100% branch
 pnpm --filter @ironflow/api-client test     153 tests
 pnpm --filter @ironflow/web test             38 tests
-pnpm --filter @ironflow/web test:e2e         10 tests (PLAYWRIGHT_CHROMIUM_PATH to reuse a
+pnpm --filter @ironflow/web test:e2e         12 tests (PLAYWRIGHT_CHROMIUM_PATH to reuse a
                                                        pinned Chromium instead of downloading)
+pnpm db:test:rls                             RLS isolation + erasure cascade (needs Docker)
 pnpm --filter @ironflow/web build            compiled, 17/17 pages
 ```
 

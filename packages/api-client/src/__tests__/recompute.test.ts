@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activityLoad, buildDailyMetrics, rollUpDays, type DailyRollup } from '../repositories/recompute.js';
+import { downsample } from '../repositories/activities.js';
 import type { Tables } from '../types.js';
 
 type Activity = Tables<'activities'>;
@@ -135,5 +136,23 @@ describe('buildDailyMetrics', () => {
     const rows = buildDailyMetrics(flat(0, 8));
     expect(rows.at(-1)).toMatchObject({ ctl_total: 0, atl_total: 0, tsb_total: 0, daily_load: 0 });
     expect(rows.at(-1)!.ctl_by_sport).toEqual({ run: 0 });
+  });
+});
+
+describe('downsample — what a 3-hour trace has to become before it can be drawn', () => {
+  it('leaves a short stream alone', () => {
+    expect(downsample([1, 2, 3], 600)).toEqual([1, 2, 3]);
+  });
+
+  it('reduces a long stream to the target length', () => {
+    expect(downsample(Array.from({ length: 10_800 }, (_, i) => i), 600)).toHaveLength(600);
+  });
+
+  // Stride sampling would drop a 30-second peak entirely, which on a power trace is the part
+  // the athlete actually opened the page to see.
+  it('keeps a spike that stride sampling would miss', () => {
+    const flat = Array.from({ length: 5000 }, () => 200);
+    flat[2501] = 900;
+    expect(Math.max(...downsample(flat, 100))).toBe(900);
   });
 });

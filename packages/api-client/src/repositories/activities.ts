@@ -23,7 +23,7 @@ import {
   type ZoneSet,
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
-import { packFloat32, packInt16, packLatLng, toByteaHex } from '../streams.js';
+import { packFloat32, packInt16, packLatLng, toByteaHex, unpackFloat32, unpackInt16 } from '../streams.js';
 import type { Tables, TablesInsert } from '../types.js';
 import { getZoneSetForSport } from './athleteModel.js';
 import { getCriticalSwimSpeed } from './fieldTests.js';
@@ -444,4 +444,64 @@ export async function getActivitiesInRange(
     .lte('start_time', `${toDate}T23:59:59Z`)
     .order('start_time', { ascending: false });
   return data ?? [];
+}
+
+// ── Activity detail (04-DATA-MODEL §5; CLAUDE.md hard rule 6) ────────────────
+
+export interface ActivityStreams {
+  sampleRateHz: number;
+  timeS: number[];
+  hr: number[];
+  powerW: number[];
+  speedMps: number[];
+  altitudeM: number[];
+  cadence: number[];
+}
+
+/** One activity, no streams — cheap enough for a detail header to render immediately. */
+export async function getActivity(client: TriflowClient, activityId: string): Promise<Tables<'activities'> | null> {
+  const { data } = await client.from('activities').select('*').eq('id', activityId).maybeSingle();
+  return data;
+}
+
+/**
+ * The activity's streams, **fetched only when something is going to draw them** (hard rule 6:
+ * never fetch streams for a list view). Separate from `getActivity` so the detail page can paint
+ * its header first and pull the trace in behind it.
+ */
+export async function getActivityStreams(client: TriflowClient, activityId: string): Promise<ActivityStreams | null> {
+  const { data } = await client
+    .from('activity_streams')
+    .select('sample_rate_hz, time_s, hr, power_w, speed_mps, altitude_m, cadence')
+    .eq('activity_id', activityId)
+    .maybeSingle();
+  if (!data) return null;
+
+  const hex = (v: unknown) => (typeof v === 'string' ? v : null);
+  return {
+    sampleRateHz: Number(data.sample_rate_hz) || 1,
+    timeS: unpackFloat32(hex(data.time_s)),
+    hr: unpackInt16(hex(data.hr)),
+    powerW: unpackInt16(hex(data.power_w)),
+    speedMps: unpackFloat32(hex(data.speed_mps)),
+    altitudeM: unpackFloat32(hex(data.altitude_m)),
+    cadence: unpackInt16(hex(data.cadence)),
+  };
+}
+
+/**
+ * Reduce a stream to at most `target` points for drawing.
+ *
+ * An SVG polyline with 10 800 points — a three-hour ride at 1 Hz — is slower to lay out than the
+ * whole rest of the page, and no display is wide enough to show them. Takes the **maximum** of
+ * each bucket rather than the first sample: a peak is the part of a power trace that matters, and
+ * stride sampling is exactly what drops it.
+ */
+export function downsample(values: readonly number[], target = 600): number[] {
+  if (values.length <= target) return [...values];
+  const bucket = values.length / target;
+  return Array.from({ length: target }, (_, i) => {
+    const slice = values.slice(Math.floor(i * bucket), Math.max(Math.floor((i + 1) * bucket), Math.floor(i * bucket) + 1));
+    return Math.max(...slice);
+  });
 }

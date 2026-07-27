@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '@ironflow/ui';
+import Link from 'next/link';
 import { RpeControl } from '../../../components/activities/RpeControl';
 import { UploadActivity } from '../../../components/activities/UploadActivity';
 import {
@@ -52,7 +53,7 @@ function Row({ a, onRate, saving }: { a: ActivitySummary; onRate: ((rpe: number)
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.05]">
         <span className={`h-2.5 w-2.5 rounded-full ${sport.dot}`} aria-hidden />
       </span>
-      <button type="button" className="flex min-w-0 flex-1 flex-col items-start text-left">
+      <Link href={`/activities/${a.id}`} className="flex min-w-0 flex-1 flex-col items-start text-left">
         <div className="flex items-center gap-2">
           <span className="truncate text-body font-medium text-text">{a.title}</span>
           {a.status === 'partial' ? <span className="rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold text-warn">PARTIAL</span> : null}
@@ -65,7 +66,7 @@ function Row({ a, onRate, saving }: { a: ActivitySummary; onRate: ((rpe: number)
         <span className="text-label text-faint">
           {a.dayLabel} {a.dateLabel} · {sport.label}
         </span>
-      </button>
+      </Link>
       <div className="hidden shrink-0 flex-col items-end sm:flex">
         <span className="font-mono text-mono tabular-nums text-muted">{durationLabel(a.durationMin)}</span>
         <span className="font-mono text-label tabular-nums text-faint">

@@ -3,7 +3,8 @@
 import { cn } from '@ironflow/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useSupabase } from '../lib/supabase';
 import { ConsentGate } from './ConsentGate';
 
 type IconKey = 'today' | 'calendar' | 'activities' | 'analytics' | 'races' | 'settings' | 'coach';
@@ -58,6 +59,49 @@ function Icon({ name }: { name: IconKey }) {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden>
       {paths[name]}
     </svg>
+  );
+}
+
+/**
+ * Who is signed in. Was a hardcoded "SA · Sample athlete", so every athlete saw someone else's
+ * name in their own sidebar. Renders nothing until the profile is known rather than showing a
+ * placeholder that could be mistaken for a name.
+ */
+function AthleteChip() {
+  const supabase = useSupabase();
+  const [name, setName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let alive = true;
+    void (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const { data } = await supabase.from('profiles').select('display_name').eq('id', auth.user.id).maybeSingle();
+      if (alive) setName(data?.display_name?.trim() || auth.user.email || null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [supabase]);
+
+  if (!name) return null;
+
+  const initials = name
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('');
+
+  return (
+    <Link href="/settings" className="flex items-center gap-2.5 rounded-control px-2 py-1.5 text-label text-faint hover:bg-white/[0.04]">
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.06] text-muted">{initials}</span>
+      <div className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-muted">{name}</span>
+        <span className="text-faint">Self-coached</span>
+      </div>
+    </Link>
   );
 }
 
@@ -144,13 +188,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="flex flex-col gap-3">
             <div className="hairline" />
-            <div className="flex items-center gap-2.5 rounded-control px-2 py-1.5 text-label text-faint">
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-muted">SA</span>
-              <div className="flex flex-col leading-tight">
-                <span className="text-muted">Sample athlete</span>
-                <span className="text-faint">Self-coached</span>
-              </div>
-            </div>
+            <AthleteChip />
           </div>
         </div>
       </aside>

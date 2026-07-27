@@ -16,8 +16,13 @@ import { useSupabase } from './supabase';
 
 const SECONDS_PER_HOUR = 3600;
 
-/** The athlete's upcoming races, or null when there is nothing live (⇒ caller uses the sample). */
-export function useLiveRaces(): { races: RaceSource[] | null; loading: boolean } {
+/**
+ * The athlete's upcoming races, or null when there is nothing live (⇒ caller uses the sample).
+ *
+ * `reloadKey` re-runs the read; bump it after adding a race so the list updates without a
+ * navigation. One dependency beats a second copy of this query in the page.
+ */
+export function useLiveRaces(reloadKey = 0): { races: RaceSource[] | null; loading: boolean } {
   const supabase = useSupabase();
   const [races, setRaces] = useState<RaceSource[] | null>(null);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -61,7 +66,7 @@ export function useLiveRaces(): { races: RaceSource[] | null; loading: boolean }
     return () => {
       alive = false;
     };
-  }, [supabase]);
+  }, [supabase, reloadKey]);
 
   return { races, loading };
 }

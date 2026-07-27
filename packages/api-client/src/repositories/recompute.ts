@@ -14,6 +14,9 @@
 
 import {
   fitCriticalPower,
+  nextFieldTest,
+  type FieldTestType,
+  type Sport,
   fitnessSeries,
   meanMaxCurve,
   mergeMeanMax,
@@ -134,7 +137,7 @@ export async function recomputeDailyMetrics(
   client: TriflowClient,
   athleteId: string,
   today: string,
-): Promise<{ days: number }> {
+): Promise<{ days: number; primarySport: string | null }> {
   const from = iso(today, -RECOMPUTE_WINDOW_DAYS);
   const { data, error } = await client
     .from('activities')
@@ -146,13 +149,35 @@ export async function recomputeDailyMetrics(
     .lte('start_time', `${iso(today, 1)}T23:59:59Z`);
   if (error) throw new Error(`recompute read failed: ${error.message}`);
 
-  const rows = buildDailyMetrics(rollUpDays((data ?? []) as Tables<'activities'>[], from, today));
+  const days = rollUpDays((data ?? []) as Tables<'activities'>[], from, today);
+  const rows = buildDailyMetrics(days);
   const { error: writeError } = await client
     .from('daily_metrics')
     .upsert(rows.map((r) => ({ athlete_id: athleteId, ...r })), { onConflict: 'athlete_id,date' });
   if (writeError) throw new Error(`recompute write failed: ${writeError.message}`);
 
-  return { days: rows.length };
+  return { days: rows.length, primarySport: dominantSport(days) };
+}
+
+/**
+ * The sport carrying the most load over the window — what §12 calls the athlete's primary sport
+ * when deciding which test they are due. Derived rather than asked for: a triathlete's answer
+ * changes across a season, and the load already says it.
+ */
+export function dominantSport(days: readonly DailyRollup[]): string | null {
+  const totals = new Map<string, number>();
+  for (const day of days) {
+    for (const [sport, load] of Object.entries(day.bySport)) totals.set(sport, (totals.get(sport) ?? 0) + load);
+  }
+  let best: string | null = null;
+  let bestLoad = 0;
+  for (const [sport, load] of totals) {
+    if (load > bestLoad) {
+      best = sport;
+      bestLoad = load;
+    }
+  }
+  return best;
 }
 
 // ── Mean-max curves, and the CP anchor they exist to produce ─────────────────
@@ -296,5 +321,95 @@ async function writeAnchor(
     source_activity_ids: sourceActivityIds,
   });
   if (error) throw new Error(`anchor write failed: ${error.message}`);
+  return true;
+}
+
+// ── Field tests the athlete is due (§12) ────────────────────────────────────
+
+/**
+ * The `field_tests.protocol` each engine test type maps to. The engine names *what* is being
+ * re-measured; the column names *how*, and the check constraint on it is the authority.
+ */
+const TEST_PROTOCOL: Record<FieldTestType, string> = {
+  lt2: '20min_tt',
+  full_battery: 'cp_12_3',
+  confirmatory: '20min_tt',
+};
+
+/** A swim primary sport tests CSS; everything else uses the protocol above. */
+const swimProtocol = (sport: string, fallback: string): string => (sport === 'swim' ? 'css_400_200' : fallback);
+
+/**
+ * Write the field test the athlete is due, if they are due one and none is already open.
+ *
+ * §12 opens with "tests are prescriptions, not suggestions", and `nextFieldTest` has been able to
+ * say *which* test and *by when* since Phase 5 — but nothing ever wrote a row, so no test was ever
+ * scheduled, and the `test_due` notification read a table that could never have anything in it.
+ */
+export async function scheduleDueFieldTest(
+  client: TriflowClient,
+  athleteId: string,
+  today: string,
+  primarySport: string | null,
+): Promise<boolean> {
+  // Already prescribed and not yet done — do not stack a second one on top.
+  const { data: open } = await client
+    .from('field_tests')
+    .select('id')
+    .eq('athlete_id', athleteId)
+    .eq('status', 'scheduled')
+    .limit(1);
+  if (open && open.length > 0) return false;
+
+  const [{ data: model }, { data: lastTest }, { data: races }] = await Promise.all([
+    client.from('athlete_model_current').select('combined_confidence').eq('athlete_id', athleteId).maybeSingle(),
+    client
+      .from('field_tests')
+      .select('scheduled_date, completed_at')
+      .eq('athlete_id', athleteId)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(1),
+    client
+      .from('races')
+      .select('race_date')
+      .eq('athlete_id', athleteId)
+      .eq('priority', 'A')
+      .gte('race_date', today)
+      .order('race_date', { ascending: true })
+      .limit(1),
+  ]);
+
+  // No model yet means nothing to re-anchor — the first anchors have to exist before they can
+  // go stale, and prescribing a test to an athlete with no baseline tests nothing.
+  if (!model) return false;
+
+  const lastDate = lastTest?.[0]?.completed_at ?? lastTest?.[0]?.scheduled_date ?? null;
+  const weeksSinceLastTest = lastDate
+    ? Math.floor((new Date(today).getTime() - new Date(lastDate).getTime()) / (7 * 86_400_000))
+    : // Never tested: far enough back to trip the cadence rule rather than a magic "0 weeks ago".
+      Number.MAX_SAFE_INTEGER;
+
+  const sport = (primarySport ?? 'run') as Sport;
+  const trigger = nextFieldTest({
+    confidence: Number(model.combined_confidence),
+    weeksSinceLastTest,
+    primarySport: sport,
+    ...(races?.[0]
+      ? { daysToARace: Math.round((new Date(races[0].race_date).getTime() - new Date(today).getTime()) / 86_400_000) }
+      : {}),
+  });
+  if (!trigger) return false;
+
+  const testSport = (trigger.sport ?? sport) as Sport;
+  const { error } = await client.from('field_tests').insert({
+    athlete_id: athleteId,
+    sport: testSport,
+    protocol: swimProtocol(testSport, TEST_PROTOCOL[trigger.test]),
+    // The deadline, not today: §12 places tests against the week, and the athlete has until then.
+    scheduled_date: iso(today, Math.max(0, trigger.deadlineDayIndex)),
+    status: 'scheduled',
+  });
+  if (error) throw new Error(`field test schedule failed: ${error.message}`);
   return true;
 }

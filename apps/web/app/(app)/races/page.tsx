@@ -1,7 +1,9 @@
 'use client';
 
-import { Button, Card } from '@ironflow/ui';
-import { useMemo } from 'react';
+import { Card } from '@ironflow/ui';
+import { useMemo, useState } from 'react';
+import { AddRace } from '../../../components/races/AddRace';
+import { SampleDataBadge } from '../../../components/SampleDataBadge';
 import { PhaseTimeline } from '../../../components/races/PhaseTimeline';
 import { RaceCard, priorityChip } from '../../../components/races/RaceCard';
 import { todayISO } from '../../../lib/live-plan';
@@ -12,7 +14,9 @@ import { DEMO_RACES } from '../../../lib/races-demo';
 export default function RacesPage() {
   // The athlete's own races when there are any, else the sample athlete's — either way the
   // engine's `resolveRaceCalendar` decides what each race means for the plan.
-  const { races: live } = useLiveRaces();
+  // Bumped after a race is added, so the list reloads without a full navigation.
+  const [reloadKey, setReloadKey] = useState(0);
+  const { races: live } = useLiveRaces(reloadKey);
   const today = todayISO();
   const { primary, others, warnings } = useMemo(
     () => buildRaceCalendar(live ?? DEMO_RACES, today),
@@ -27,8 +31,9 @@ export default function RacesPage() {
           <p className="max-w-2xl text-body text-muted">
             Your A race drives the whole plan; B races insert a local peak, and C races are trained through.
           </p>
+          <SampleDataBadge live={live !== null} what="races" />
         </div>
-        <Button variant="secondary">Add a race</Button>
+        <AddRace onAdded={() => setReloadKey((n) => n + 1)} />
       </header>
 
       {/* The engine flags calendars it cannot honour — e.g. two A races too close to peak for both. */}

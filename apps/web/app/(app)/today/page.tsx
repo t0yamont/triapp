@@ -13,6 +13,7 @@ import { ComingUp } from '../../../components/today/ComingUp';
 import { AttentionCard } from '../../../components/today/AttentionCard';
 import { LiveDecisionLog } from '../../../components/today/DecisionLog';
 import { NotificationsCard } from '../../../components/today/NotificationsCard';
+import { useSessionDownload } from '../../../lib/use-session-download';
 
 /** No change was made — what §10.2 returns for a day it decided to leave alone. */
 const UNADAPTED: AdaptationResult = {
@@ -52,6 +53,8 @@ export default function TodayPage() {
   const sessionAdaptation = adaptation ?? (isLiveSession ? UNADAPTED : view.adaptation);
   const attention = isLiveSession ? view.attention.filter((i) => i.kind !== 'plan_change') : view.attention;
 
+  const { download, note } = useSessionDownload();
+
   const provenance = live
     ? liveReadiness
       ? 'Your plan · your readiness'
@@ -78,6 +81,8 @@ export default function TodayPage() {
         readinessLine={liveReadiness ? '' : view.readinessLine}
         climate={view.climate}
         dateLabel={view.dateLabel}
+        onDownload={() => download(session, view.dateLabel)}
+        downloadNote={note}
       />
 
       <CheckInCard

@@ -19,6 +19,7 @@ import {
   notifyDue,
   recomputeDailyMetrics,
   recomputeMeanMax,
+  scheduleDueFieldTest,
   withJobLog,
 } from '@ironflow/api-client';
 
@@ -84,10 +85,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const today = localToday(profile.timezone);
         const daily = await recomputeDailyMetrics(client, profile.id, today);
         const curves = await recomputeMeanMax(client, profile.id, today);
+        // §12 — prescribe the test they are due before the notification looks for one.
+        const testScheduled = await scheduleDueFieldTest(client, profile.id, today, daily.primarySport);
         // The nightly job is the only thing that knows it is the athlete's morning, so it is
         // also where the two time-based notifications belong.
         const sent = await notifyDue(client, profile.id, today);
-        return { ...daily, ...curves, notified: sent };
+        return { ...daily, ...curves, testScheduled, notified: sent };
       });
       ok += 1;
     } catch {

@@ -67,3 +67,27 @@ test('an unconfigured project says so rather than pretending to work', async ({ 
   await page.goto('/onboarding/about');
   await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
 });
+
+test('settings invents nothing about the athlete', async ({ page }) => {
+  await page.goto('/settings');
+  await expect(page.locator('main')).toBeVisible();
+
+  // The three demo blocks this page used to render as if measured: five invented threshold
+  // anchors with confidence dots and "field test · 12 days ago", a Garmin that claimed to have
+  // synced two hours ago, and a profile pre-filled "Sample Athlete". Fabricated physiology
+  // presented as an athlete's own is the failure CLAUDE.md names directly.
+  for (const invented of ['Sample Athlete', 'Last sync 2h ago', 'Auto-import on', 'mean-max fit', 'observed max']) {
+    await expect(page.getByText(invented)).toHaveCount(0);
+  }
+  // No anchors exist without a project, so the empty state is what must show.
+  await expect(page.getByText(/Nothing measured yet/i)).toBeVisible();
+});
+
+test('every settings control does something', async ({ page }) => {
+  await page.goto('/settings');
+  // Without Supabase every write is disabled — which is the honest state, and is what proves
+  // these are wired to a real path rather than being decorative.
+  for (const name of ['Save changes', 'Export my data', 'Delete my account', 'Sign out']) {
+    await expect(page.getByRole('button', { name })).toBeDisabled();
+  }
+});

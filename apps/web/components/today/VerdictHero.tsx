@@ -1,4 +1,5 @@
 import { Button, Card } from '@ironflow/ui';
+import Link from 'next/link';
 import type { AdaptationResult, Readiness, SZone } from '@ironflow/core/physio';
 import type { Climate } from '../../lib/climate';
 import { CLIMATE_META } from '../../lib/climate';
@@ -73,6 +74,8 @@ export function VerdictHero({
   readinessLine,
   climate,
   dateLabel,
+  onDownload,
+  downloadNote,
 }: {
   session: PlannedSession;
   adaptation: AdaptationResult;
@@ -81,6 +84,8 @@ export function VerdictHero({
   readinessLine: string;
   climate: Climate;
   dateLabel: string;
+  onDownload?: () => void;
+  downloadNote?: string | null;
 }) {
   const zone = ZONE[effectiveZone];
   const cl = CLIMATE_META[climate];
@@ -111,11 +116,21 @@ export function VerdictHero({
 
         <AdaptationBanner adaptation={adaptation} />
 
-        <div className="mt-auto flex gap-2.5 pt-1.5">
+        <div className="mt-auto flex flex-wrap items-center gap-2.5 pt-1.5">
           {/* ponytail: Button has no size variant yet and `cn` doesn't dedupe conflicting
               Tailwind classes, so we don't fight its default padding here — see PACKAGE ui. */}
-          <Button>Start session</Button>
-          <Button variant="secondary">Move to another day</Button>
+          {/* The FIT download is the roadmap's "fallback built regardless" of the Garmin grant
+              (Phase 7). It was written, tested, and had no caller anywhere in the app. */}
+          <Button onClick={onDownload} disabled={session.intervals.length === 0}>
+            Send to watch
+          </Button>
+          {/* Moving a session is week repair (F10) and the calendar already does it, with the
+              guardrail check and the audit row. A second date picker here would be a second
+              implementation of the part that is easy to get wrong. */}
+          <Link href="/calendar">
+            <Button variant="secondary">Move to another day</Button>
+          </Link>
+          {downloadNote && <span className="text-label text-faint">{downloadNote}</span>}
         </div>
       </div>
 

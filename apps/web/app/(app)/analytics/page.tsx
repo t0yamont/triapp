@@ -1,5 +1,6 @@
 'use client';
 
+import { SampleDataBadge } from '../../../components/SampleDataBadge';
 import { Card } from '@ironflow/ui';
 import { buildAnalyticsView } from '../../../lib/analytics-demo';
 import { FormChart } from '../../../components/analytics/FormChart';
@@ -43,6 +44,7 @@ export default function AnalyticsPage() {
           Your training state — fitness, fatigue and form over the last 12 weeks, how polarised the work has
           been, and whether your fatigue resistance is holding on the long days.
         </p>
+        <SampleDataBadge live={live !== null} what="training history" />
       </header>
 
       <Card raised className="flex flex-col gap-6">

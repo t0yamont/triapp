@@ -103,6 +103,16 @@ export async function recordCssTest(
     throw error;
   }
 
+  // Close the prescription this fulfils. Without it the test stays "scheduled" for ever and the
+  // athlete is reminded about a test they have already done.
+  await client
+    .from('field_tests')
+    .update({ status: 'completed', completed_at: now })
+    .eq('athlete_id', athleteId)
+    .eq('sport', 'swim')
+    .eq('status', 'scheduled')
+    .then(undefined, () => undefined);
+
   return { status: 'recorded', anchor: estimate, pacePer100m: pacePer100m(estimate.value) };
 }
 

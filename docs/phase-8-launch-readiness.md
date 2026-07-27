@@ -159,8 +159,16 @@ the register names tables, and the breach process names the realistic failure mo
 system. That accuracy is the part an external adviser cannot supply; the legal framing is the part
 they must, and every document says so.
 
-Two things the pack records rather than glosses: **the deployed Supabase and Vercel regions are not
-confirmed to be EU/UK**, and **no DPA is signed**. Both are launch blockers.
+**Residency.** Supabase is in the **UK** — confirmed and recorded. Vercel is not set up yet, and
+that is the moment worth catching: **Vercel's default function region is `iad1`, Washington DC.**
+Left alone, `/api/account` — the route that erases an account, and therefore reads the athlete's
+profile and provider rows — would execute in the United States, creating a routine transfer nobody
+decided to make. `vercel.json` now pins `lhr1` (London), in both the repo root and `apps/web`,
+because Vercel reads that file from whichever the project's Root Directory is set to and a copy
+that gets ignored is precisely the failure being guarded against. Verify it on the first deploy via
+the Functions tab or the `x-vercel-id` header.
+
+**Still a launch blocker:** no DPA is signed with either sub-processor.
 
 ---
 

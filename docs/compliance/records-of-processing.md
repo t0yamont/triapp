@@ -87,6 +87,13 @@ Only the sub-processors listed in [`sub-processors.md`](./sub-processors.md).
 
 ## International transfers
 
-‹TO BE COMPLETED once the deployed regions are confirmed. Target: UK/EU regions for both Supabase
-and Vercel, with no routine transfer outside the UK/EEA. Provider integrations may involve
-transfers — each must be assessed before it ships.›
+**Supabase: United Kingdom**, confirmed 27 July 2026. All personal data at rest — database, auth,
+storage, Vault — is held there.
+
+**Vercel: not yet provisioned.** The application must run in London (`lhr1`); this is pre-set in
+`vercel.json` because Vercel's default function region is Washington DC, which would put the
+account-erasure route's processing in the United States by default. Confirm the actual region after
+the first deployment and record it here.
+
+No routine transfer outside the UK is expected once both are in place. Provider integrations
+involve transfers by their nature — each must be assessed before it ships, and none has yet.

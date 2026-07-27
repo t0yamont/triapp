@@ -10,8 +10,29 @@ appendix to it: a sub-processor added without appearing here is a breach of the 
 
 | Sub-processor | What it does | Personal data it sees | Region | DPA |
 |---|---|---|---|---|
-| **Supabase** | Postgres database, authentication, file storage, Edge Functions, secrets (Vault) | All of it — profile, activities, streams, wellness, plans, credentials | ‹TO BE CONFIRMED — must be EU/UK› | ‹TO BE SIGNED› |
-| **Vercel** | Hosts and serves the web application, runs its server routes | Data in transit; request logs (IP, user agent). No training data at rest | ‹TO BE CONFIRMED — must be EU/UK› | ‹TO BE SIGNED› |
+| **Supabase** | Postgres database, authentication, file storage, Edge Functions, secrets (Vault) | All of it — profile, activities, streams, wellness, plans, credentials | **United Kingdom** (confirmed 27 Jul 2026) | ‹TO BE SIGNED› |
+| **Vercel** | Hosts and serves the web application, runs its server routes | Data in transit; request logs (IP, user agent). No training data at rest | **Not yet provisioned.** Must be London (`lhr1`) — pre-set in `vercel.json`, see below | ‹TO BE SIGNED› |
+
+### Vercel — read this before creating the project
+
+The project does not exist yet, which is the good moment to get this right, because **Vercel's
+default function region is `iad1` (Washington DC)**. Left alone, the `/api/account` route — the
+one that erases an athlete's account, and therefore reads their profile and provider connection
+rows — would execute in the United States, creating a routine transfer nobody decided to make.
+
+Two guards are already in place:
+
+1. `regions: ["lhr1"]` (London) is pinned in `vercel.json`, so it applies from the first
+   deployment rather than depending on anyone remembering. Vercel reads that file from whatever
+   the project's **Root Directory** is set to — `apps/web` for this layout, but the repo root if
+   the project is configured that way — so the file exists in **both** places. They are identical
+   and hold nothing but the region; a copy that gets ignored is the failure this is guarding
+   against, so there is deliberately no single authoritative one to get wrong.
+2. Confirm it after the first deploy: the function's region is shown in the deployment's
+   Functions tab, and in the `x-vercel-id` response header (it is prefixed with the region code).
+
+The CDN edge that serves static assets is global by design and is not in scope: it caches the
+compiled application, not athlete data. Only the *function* region matters here.
 
 ## Provider connections — only when the athlete connects one
 

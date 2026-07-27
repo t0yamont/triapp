@@ -4,8 +4,9 @@
 #   supabase link --project-ref <your-project-ref>
 #   supabase db push        # applies supabase/migrations/*
 #
-# Region/data residency (02-ARCHITECTURE.md §7): choose an EU/UK region when creating the
-# project — it cannot be changed later. That is set in the dashboard, not this file.
+# Region/data residency (02-ARCHITECTURE.md §7): this project is in the **UK**. The region is set
+# in the dashboard, not this file, and cannot be changed later — a new project and a data
+# migration is the only route. Recorded in docs/compliance/sub-processors.md.
 project_id = "uohnidhngvrzoyltekph"
 
 [api]

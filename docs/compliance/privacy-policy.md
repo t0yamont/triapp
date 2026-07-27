@@ -106,9 +106,13 @@ name, a duration and an outcome, never your training or wellness values.
 
 ## 8. Where it is held
 
-‹TO BE COMPLETED — confirm the deployed region› The service is designed to run in UK/EU regions
-for both the database and the application, and to keep it that way; see
-[`sub-processors.md`](./sub-processors.md) for each provider's location and transfer terms.
+Your data is stored in the **United Kingdom**. The database, your account, your activity files and
+your credentials are all held in a UK region, and the application that serves them is configured to
+run in London. We do not routinely transfer your data outside the UK.
+
+Connecting a provider such as Garmin or Strava sends data between them and us, and those companies
+operate internationally; each connection is a separate choice you make, and
+[`sub-processors.md`](./sub-processors.md) lists what each one receives.
 
 ## 9. Security
 

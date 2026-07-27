@@ -41,9 +41,11 @@ These need a decision or a signature, not code:
 1. **Legal review** of every document here.
 2. **Signed DPAs** with each sub-processor, and confirmation each offers UK/EU-appropriate
    transfer terms.
-3. **Region confirmation.** `supabase/config.toml` documents the requirement to pick an EU/UK
-   region; the deployed project's actual region must be recorded in `sub-processors.md`, and the
-   Vercel project pinned to an EU/UK region too. §7 is explicit that migrating later is painful.
+3. **Hosting region — half done.** Supabase is in the **UK** (confirmed). Vercel is not set up
+   yet; when it is, it must run in London. `vercel.json` already pins `lhr1`, because Vercel's
+   default function region is Washington DC and the account-erasure route would otherwise process
+   personal data in the US. Verify it on the first deployment and record it in
+   `sub-processors.md`. §7 is explicit that migrating later is painful.
 4. **Controller identity** — registered company name, address, ICO registration.
 5. **Provider-specific terms.** Strava's are flagged as pending review in the roadmap's
    out-of-scope list; no provider connection should ship before its terms are cleared.

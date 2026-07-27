@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ConsentGate } from './ConsentGate';
 
-type IconKey = 'today' | 'calendar' | 'activities' | 'analytics' | 'races' | 'settings';
+type IconKey = 'today' | 'calendar' | 'activities' | 'analytics' | 'races' | 'settings' | 'coach';
 
 const NAV: { href: string; label: string; icon: IconKey }[] = [
   { href: '/today', label: 'Today', icon: 'today' },
@@ -46,11 +46,41 @@ function Icon({ name }: { name: IconKey }) {
         <circle cx="7" cy="13" r="2" fill="#0d1018" />
       </>
     ),
+    coach: (
+      <>
+        <circle cx="7.5" cy="7" r="2.6" />
+        <path d="M3 16v-1a4.5 4.5 0 0 1 9 0v1" />
+        <path d="M13 8.5a2.2 2.2 0 1 0 0-3.4M14 16v-1a4 4 0 0 0-1.4-3" opacity="0.55" />
+      </>
+    ),
   };
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]" aria-hidden>
       {paths[name]}
     </svg>
+  );
+}
+
+/**
+ * Coach mode is v2 (01-PRODUCT.md: "coach-mode UI is scaffolded-but-disabled, but no coach
+ * features ship in v1"), and 08-ROADMAP.md Phase 8 requires the scaffolding to be visible.
+ *
+ * 06-UX.md §3 specifies it exactly: "a dimmed `Coach · Coming soon` entry (`aria-disabled`, 50%
+ * opacity, no pointer events)". A `<span>` rather than a disabled `<Link>` — there is nowhere to
+ * navigate to, and a link that goes nowhere is still focusable and still announced as a link.
+ */
+function CoachNavItem() {
+  return (
+    <span
+      aria-disabled="true"
+      className="group relative flex cursor-default items-center gap-3 rounded-control px-3 py-2 text-body text-muted opacity-50 [pointer-events:none]"
+    >
+      <span className="text-faint">
+        <Icon name="coach" />
+      </span>
+      Coach
+      <span className="ml-auto text-label text-faint">Coming soon</span>
+    </span>
   );
 }
 
@@ -109,6 +139,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            <CoachNavItem />
           </nav>
 
           <div className="flex flex-col gap-3">
@@ -117,7 +148,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-muted">SA</span>
               <div className="flex flex-col leading-tight">
                 <span className="text-muted">Sample athlete</span>
-                <span className="text-faint">Coach · soon</span>
+                <span className="text-faint">Self-coached</span>
               </div>
             </div>
           </div>

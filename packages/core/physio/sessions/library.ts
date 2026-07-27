@@ -8,7 +8,12 @@ import { BIKE_VO2_SHORT, RUN_VO2_LONG } from '../constants.js';
 import type { PlanSport, SessionPurpose } from '../plan/types.js';
 import type { SZone } from '../types.js';
 
-export type StepIntent = 'warmup' | 'work' | 'recovery' | 'steady' | 'cooldown';
+/**
+ * `drill` is its own intent rather than a flavour of `work`: a swim drill is technique at easy
+ * intensity, so scoring it as work would inflate the session's load, and calling it recovery
+ * would hide that the athlete is doing something deliberate.
+ */
+export type StepIntent = 'warmup' | 'work' | 'recovery' | 'steady' | 'cooldown' | 'drill';
 
 export interface Step {
   kind: 'step';
@@ -113,6 +118,7 @@ export function renderSession(spec: SessionSpec): WorkoutStructure {
 
   if (purpose === 'vo2max') return fitVo2max(spec, totalSec);
   if (purpose === 'durability') return renderDurability(spec, totalSec);
+  if (sport === 'swim') return renderSwimSets(spec, totalSec);
 
   // aerobic_volume, recovery, technique and anything the planner doesn't yet emit: one
   // continuous effort at the goal zone. Deliberately not embellished — an easy run is an easy
@@ -167,6 +173,38 @@ function fitVo2max(spec: SessionSpec, totalSec: number): WorkoutStructure {
       repeat(repCount, [step('work', 90, 'S3'), step('recovery', 20, 'S1')]),
       step('cooldown', cooldown.durationSec + (workSec - used), 'S1'),
     ],
+  };
+}
+
+// Structural, not physiological: how a swim session is *written*, not a claim about training
+// effect. A pool set is broken by the wall, so "swim steadily for 40 minutes" is a prescription
+// no coach would hand over — the same easy work is written as sets with short rest. Zones and
+// totals are unchanged by this; only the shape is.
+const SWIM_SET_SEC = 120;
+const SWIM_SET_REST_SEC = 20;
+const SWIM_DRILL_SEC = 60;
+
+/**
+ * Swim sessions other than VO₂ (which §7.2 already specifies as 10 × 100) — written as sets.
+ * A technique session alternates a drill with a swim; everything else is straight sets.
+ */
+function renderSwimSets(spec: SessionSpec, totalSec: number): WorkoutStructure {
+  const base = { sport: spec.sport, purpose: spec.purpose, goalZone: spec.goalZone };
+  const { warmup, cooldown, workSec } = bookends(totalSec);
+  const isTechnique = spec.purpose === 'technique';
+
+  const cycleSec = (isTechnique ? SWIM_DRILL_SEC : 0) + SWIM_SET_SEC + SWIM_SET_REST_SEC;
+  const reps = Math.max(1, Math.floor(workSec / cycleSec));
+  const used = reps * cycleSec;
+
+  const cycle = isTechnique
+    ? [step('drill', SWIM_DRILL_SEC, 'S1'), step('work', SWIM_SET_SEC, spec.goalZone), step('recovery', SWIM_SET_REST_SEC, 'S1')]
+    : [step('work', SWIM_SET_SEC, spec.goalZone), step('recovery', SWIM_SET_REST_SEC, 'S1')];
+
+  return {
+    ...base,
+    // Any remainder joins the cool-down rather than padding a set to an odd length.
+    steps: [warmup, repeat(reps, cycle), step('cooldown', cooldown.durationSec + (workSec - used), 'S1')],
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import f13 from '../../../../supabase/seed/fixtures/F13-interval-selection.json' with { type: 'json' };
-import { renderVo2max, type Repeat, type Step, type WorkoutElement } from '../sessions/library.js';
+import { renderSession, renderVo2max, structureDurationSec, type Repeat, type Step, type WorkoutElement } from '../sessions/library.js';
+import type { SessionPurpose } from '../plan/types.js';
 
 const repeats = (steps: WorkoutElement[]): Repeat[] => steps.filter((s): s is Repeat => s.kind === 'repeat');
 
@@ -36,5 +37,49 @@ describe('Sport-specific interval selection (§7.2, F13)', () => {
     const w = renderVo2max('swim');
     expect(repeats(w.steps)[0]!.count).toBe(10);
     expect(w.goalZone).toBe('S3');
+  });
+});
+
+describe('Swim sessions are written as sets (§7.2)', () => {
+  const swim = (purpose: SessionPurpose, durationMin = 40) =>
+    renderSession({ sport: 'swim', purpose, goalZone: 'S1', durationMin });
+
+  it('never renders an easy swim as one continuous block — nobody swims that way', () => {
+    const s = swim('aerobic_volume');
+    expect(s.steps.some((el) => el.kind === 'repeat')).toBe(true);
+    expect(s.steps.some((el) => el.kind === 'step' && el.intent === 'steady')).toBe(false);
+  });
+
+  it('alternates a drill with a swim in a technique session', () => {
+    const rep = swim('technique').steps.find((el) => el.kind === 'repeat')!;
+    expect(rep.steps.map((el) => (el.kind === 'step' ? el.intent : 'repeat'))).toEqual([
+      'drill',
+      'work',
+      'recovery',
+    ]);
+  });
+
+  it('keeps drills easy so technique work is not scored as intensity', () => {
+    const rep = swim('technique').steps.find((el) => el.kind === 'repeat')!;
+    const drill = rep.steps.find((el) => el.kind === 'step' && el.intent === 'drill')!;
+    expect(drill.kind === 'step' && drill.targetZone).toBe('S1');
+  });
+
+  it('preserves the session total exactly, whatever the remainder', () => {
+    for (const min of [20, 33, 40, 47, 60]) {
+      expect(structureDurationSec(swim('aerobic_volume', min).steps)).toBe(min * 60);
+      expect(structureDurationSec(swim('technique', min).steps)).toBe(min * 60);
+    }
+  });
+
+  it('still uses the §7.2 interval template for a VO₂ swim', () => {
+    const s = swim('vo2max', 45);
+    const rep = s.steps.find((el) => el.kind === 'repeat')!;
+    expect(rep.steps.some((el) => el.kind === 'step' && el.targetZone === 'S3')).toBe(true);
+  });
+
+  it('leaves bike and run sessions alone', () => {
+    const run = renderSession({ sport: 'run', purpose: 'aerobic_volume', goalZone: 'S1', durationMin: 45 });
+    expect(run.steps).toEqual([{ kind: 'step', intent: 'steady', durationSec: 2700, targetZone: 'S1' }]);
   });
 });

@@ -82,7 +82,7 @@ export default function AboutPage() {
       setServerError(error.message);
       return;
     }
-    router.push('/onboarding/availability');
+    router.push('/onboarding/connect');
   }
 
   // Hold the form back for the one round trip it takes to find out. Rendering "About you" and

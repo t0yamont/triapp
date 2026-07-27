@@ -43,7 +43,14 @@ psql_apply "grants (local)"               "$TST/_local_grants.sql"
 psql_apply "0003 RLS policies"            "$MIG/20260722120200_rls_policies.sql"
 psql_apply "seed two athletes"            "$TST/rls_seed.sql"
 
+psql_apply "0006 notification prefs"      "$MIG/20260727130000_notification_prefs.sql"
+
 echo "▶ running RLS isolation assertions"
 docker exec -i "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$TST/rls_isolation.sql"
 
-echo "✔ RLS verification passed"
+# The compliance claim the TypeScript tests cannot make: they assert against a fake client, so
+# they prove the *logic* of erasure and nothing about whether the foreign keys actually cascade.
+echo "▶ running erasure cascade assertions"
+docker exec -i "$CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d postgres < "$TST/erasure_cascade.sql"
+
+echo "✔ database verification passed"

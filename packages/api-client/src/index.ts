@@ -19,3 +19,6 @@ export * from './repositories/fieldTests.js';
 export * from './repositories/privacy.js';
 export * from './devices/push.js';
 export * from './observability/log.js';
+export * from './observability/syncHealth.js';
+export * from './time.js';
+export * from './repositories/decisions.js';

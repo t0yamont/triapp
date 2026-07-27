@@ -1,12 +1,14 @@
 import { generatePlan, type GeneratePlanInput } from '@ironflow/core/physio';
 import { describe, expect, it } from 'vitest';
 import {
+  auditPlanGuardrails,
   fromWorkoutRow,
   toPlanWeekRow,
   toTrainingPlanRow,
   toWorkoutRow,
   type GeneratedPlanMeta,
 } from '../repositories/plans.js';
+import { guardrailAlert } from '../observability/syncHealth.js';
 
 const input: GeneratePlanInput = {
   totalWeeks: 12,
@@ -132,5 +134,25 @@ describe('plan row mappers', () => {
       expect(row.template_id.length).toBeGreaterThan(0);
       expect(row.name.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// §8: "Alert on ... any guardrail violation reaching the persistence layer (should be impossible
+// — if it fires, there is a bug)." Nothing in the write path checked, so the alert could not fire.
+describe('guardrail audit at the persistence boundary', () => {
+  it('passes a real generated plan, every week of it', () => {
+    expect(auditPlanGuardrails(plan)).toEqual([]);
+    expect(guardrailAlert(auditPlanGuardrails(plan))).toBeNull();
+  });
+
+  it('catches a week that reaches the writer already broken', () => {
+    // Stand in for the engine bug this exists to detect: a week that blows its declared ceiling.
+    const broken = {
+      ...plan,
+      weeks: plan.weeks.map((w, i) => (i === 0 ? { ...w, week: { ...w.week, hoursCeiling: 1 } } : w)),
+    };
+    const violations = auditPlanGuardrails(broken);
+    expect(violations.map((v) => v.code)).toContain('G10_HOURS_CEILING');
+    expect(guardrailAlert(violations)).toMatchObject({ code: 'guardrail_violation_persisted', severity: 'critical' });
   });
 });

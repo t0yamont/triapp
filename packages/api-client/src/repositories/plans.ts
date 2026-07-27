@@ -12,6 +12,7 @@ import {
   addDaysISO,
   dayOfWeekISO,
   distributionTarget,
+  validateWeek,
   type CourseType,
   type GeneratedPlan,
   type PlanMutation,
@@ -20,9 +21,11 @@ import {
   type ScheduledWorkout,
   type SessionPurpose,
   type WeekEdit,
+  type Violation,
   type WeekSession,
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
+import { emitAlert, guardrailAlert } from '../observability/syncHealth.js';
 import type { Json } from '../database.types.js';
 import type { Tables, TablesInsert } from '../types.js';
 
@@ -104,6 +107,8 @@ export interface GeneratedPlanMeta {
   distributionPolicy: Json;
   engineVersion: string;
   course: CourseType;
+  /** The athlete's `profiles.week_start_day`; only the guardrail audit reads it. Defaults to Monday. */
+  weekStartDay?: number;
 }
 
 export function toTrainingPlanRow(athleteId: string, plan: GeneratedPlan, meta: GeneratedPlanMeta): TablesInsert<'training_plans'> {
@@ -123,6 +128,22 @@ export function toTrainingPlanRow(athleteId: string, plan: GeneratedPlan, meta: 
 // ── Write orchestration ──────────────────────────────────────────────────────
 
 /**
+ * Re-check the guardrails on the way to the database (02-ARCHITECTURE.md §8).
+ *
+ * The engine is supposed to make this unreachable — `assembleWeek` and `applyRampCap` are the
+ * enforcers, and `validateWeek` has existed since the first commit. Nothing in the write path
+ * ever called it, so an engine bug would have arrived on an athlete's calendar unremarked.
+ *
+ * It **alerts rather than blocks**, which is §8's own wording ("alert on ... any guardrail
+ * violation reaching the persistence layer"). Refusing the write would convert an engine bug into
+ * an athlete with no plan at all — the guardrails exist to make a week safer, not to make the
+ * product unusable — and the enforcement point remains the engine, per §10/§11.
+ */
+export function auditPlanGuardrails(plan: GeneratedPlan, weekStartDay = 1): Violation[] {
+  return plan.weeks.flatMap((w) => validateWeek(w.week, weekStartDay));
+}
+
+/**
  * Persist a generated plan: one training_plans row, its plan_weeks, then all workouts wired
  * to their week. Returns the new plan id. Throws on the first failed insert (the caller should
  * run this server-side; a real transaction would use an Edge Function / RPC — see follow-up).
@@ -133,6 +154,9 @@ export async function insertGeneratedPlan(
   plan: GeneratedPlan,
   meta: GeneratedPlanMeta,
 ): Promise<{ planId: string }> {
+  const alert = guardrailAlert(auditPlanGuardrails(plan, meta.weekStartDay));
+  if (alert) emitAlert(alert);
+
   const { data: planRow, error: planErr } = await client
     .from('training_plans')
     .insert(toTrainingPlanRow(athleteId, plan, meta))

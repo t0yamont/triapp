@@ -3,6 +3,7 @@
 import { Button, Card, ConfidenceDot, Field, Input, Select } from '@ironflow/ui';
 import { FieldTestCard } from '../../../components/settings/FieldTestCard';
 import { PrivacyCard } from '../../../components/settings/PrivacyCard';
+import { SyncHealthCard } from '../../../components/settings/SyncHealthCard';
 import { ZonesCard } from '../../../components/settings/ZonesCard';
 
 interface Anchor {
@@ -106,6 +107,8 @@ export default function SettingsPage() {
               ))}
             </div>
           </Section>
+
+          <SyncHealthCard />
 
           <Section title="Notifications">
             <div className="flex flex-col divide-y divide-white/[0.06]">

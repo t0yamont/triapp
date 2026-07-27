@@ -32,6 +32,11 @@ interface FakeOpts {
   deleteError?: string;
   /** Tables whose foreign key "forgot" to cascade. */
   noCascade?: string[];
+  /**
+   * table → the columns it actually has. Four real tables are keyed `(athlete_id, …)` and have no
+   * `id`, so a count that selects `id` errors rather than returning a number.
+   */
+  columns?: Record<string, string[]>;
 }
 
 class Query implements PromiseLike<QueryResult> {
@@ -41,6 +46,9 @@ class Query implements PromiseLike<QueryResult> {
     private readonly rows: Row[],
     private readonly head: boolean,
     private readonly failMessage: string | undefined,
+    /** Postgres rejects a select on a column that does not exist — so does this. */
+    private readonly columns: string[] = [],
+    private readonly knownColumns: Set<string> | null = null,
   ) {}
 
   eq(column: string, value: unknown): Query {
@@ -57,10 +65,15 @@ class Query implements PromiseLike<QueryResult> {
     onfulfilled?: ((v: QueryResult) => A | PromiseLike<A>) | null,
     onrejected?: ((reason: unknown) => B | PromiseLike<B>) | null,
   ): PromiseLike<A | B> {
+    const missing =
+      this.knownColumns === null ? [] : this.columns.filter((c) => c !== '*' && !this.knownColumns!.has(c));
     const matched = this.rows.filter((r) => this.filters.every((f) => f(r)));
-    const result: QueryResult = this.failMessage
-      ? { data: null, error: { message: this.failMessage }, count: null }
-      : { data: this.head ? null : matched, error: null, count: matched.length };
+    const result: QueryResult =
+      this.failMessage !== undefined
+        ? { data: null, error: { message: this.failMessage }, count: null }
+        : missing.length > 0
+          ? { data: null, error: { message: `column "${missing[0]}" does not exist` }, count: null }
+          : { data: this.head ? null : matched, error: null, count: matched.length };
     return Promise.resolve(result).then(onfulfilled, onrejected);
   }
 }
@@ -87,8 +100,14 @@ function fakeClient(db: Db, opts: FakeOpts = {}): TriflowClient {
   return {
     from(table: string) {
       return {
-        select: (_columns: string, selectOpts?: { head?: boolean }) =>
-          new Query(db[table] ?? [], selectOpts?.head === true, opts.failReads?.[table]),
+        select: (columns: string, selectOpts?: { head?: boolean }) =>
+          new Query(
+            db[table] ?? [],
+            selectOpts?.head === true,
+            opts.failReads?.[table],
+            columns.split(',').map((c) => c.trim()),
+            opts.columns?.[table] ? new Set(opts.columns[table]) : null,
+          ),
         delete: () => ({
           eq: (_column: string, value: unknown) => {
             if (opts.deleteError) return Promise.resolve({ error: { message: opts.deleteError } });
@@ -251,16 +270,38 @@ describe('exportAthleteData', () => {
 
 describe('countAthleteRows', () => {
   it('counts what is held before anything is deleted', async () => {
-    const counts = await countAthleteRows(fakeClient(seed()), ATHLETE);
+    const { counts, unreadable } = await countAthleteRows(fakeClient(seed()), ATHLETE);
     expect(counts['profiles']).toBe(1);
     expect(counts['activities']).toBe(2);
     expect(counts['integrations']).toBe(2);
     expect(counts['athlete_zones']).toBe(0);
+    expect(unreadable).toEqual([]);
   });
 
   it('counts a coach by their own key as well', async () => {
-    const counts = await countAthleteRows(fakeClient(seed()), COACH);
+    const { counts } = await countAthleteRows(fakeClient(seed()), COACH);
     expect(counts['coach_athlete_relationships']).toBe(1);
+  });
+
+  // `daily_metrics` is keyed `(athlete_id, date)` and has no `id` column at all — nor do
+  // `athlete_availability`, `athlete_model_current` or `mean_max_curves`. Counting `id` errors on
+  // every one of them, and an error read as zero reports "nothing left" for the four tables that
+  // could not be checked. So the count selects the key column it is already filtering on.
+  it('counts by the key column, which every athlete-keyed table has', async () => {
+    const client = fakeClient(seed(), { columns: { daily_metrics: ['athlete_id', 'date'] } });
+    const { counts, unreadable } = await countAthleteRows(client, ATHLETE);
+    expect(counts['daily_metrics']).toBe(1);
+    expect(unreadable).toEqual([]);
+  });
+
+  // "We could not look" must never read as "there is nothing there".
+  it('records a table it could not read instead of calling it empty', async () => {
+    const { counts, unreadable } = await countAthleteRows(
+      fakeClient(seed(), { failReads: { activities: 'permission denied' } }),
+      ATHLETE,
+    );
+    expect(unreadable).toEqual(['activities']);
+    expect(counts['activities']).toBe(0);
   });
 });
 
@@ -271,6 +312,7 @@ describe('deleteAthleteData', () => {
 
     expect(result.verified).toBe(true);
     expect(Object.values(result.remaining).every((n) => n === 0)).toBe(true);
+    expect(result.unreadable).toEqual([]);
     // Cascade reached the children, which no count covers directly.
     expect(db['activity_streams']).toEqual([{ activity_id: 'act-other', hr: [99] }]);
     expect(db['plan_weeks']).toEqual([{ id: 'week-x', plan_id: 'plan-other', week_number: 1 }]);
@@ -303,6 +345,18 @@ describe('deleteAthleteData', () => {
     expect(result.verified).toBe(false);
     expect(result.remaining['daily_metrics']).toBe(1);
     expect(result.remaining['activities']).toBe(0);
+  });
+
+  it('refuses to call erasure verified when a table could not be checked', async () => {
+    // The delete itself succeeded; we simply cannot prove it for one table. Reporting success
+    // here is the "probably deleted" position §7 exists to rule out.
+    const result = await deleteAthleteData(
+      fakeClient(seed(), { failReads: { workouts: 'statement timeout' } }),
+      ATHLETE,
+    );
+    expect(result.verified).toBe(false);
+    expect(result.unreadable).toEqual(['workouts']);
+    expect(result.remaining['workouts']).toBe(0);
   });
 
   it('throws rather than half-erase when the delete fails', async () => {

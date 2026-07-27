@@ -80,16 +80,27 @@ export function PrivacyCard() {
         method: 'DELETE',
         headers: { authorization: `Bearer ${token}` },
       });
-      const body = (await response.json()) as { error?: string; verified?: boolean; remaining?: Record<string, number> };
+      const body = (await response.json()) as {
+        error?: string;
+        verified?: boolean;
+        remaining?: Record<string, number>;
+        unreadable?: string[];
+      };
       if (!response.ok) throw new Error(body.error ?? 'Deletion failed.');
 
       if (body.verified === false) {
-        // The delete ran but the re-count still found rows. Saying "done" here would be the
-        // "probably deleted" position §7 exists to rule out.
+        // Either the re-count still found rows, or a table could not be checked at all. Saying
+        // "done" for either is the "probably deleted" position §7 exists to rule out.
         const left = Object.entries(body.remaining ?? {})
           .filter(([, n]) => n > 0)
           .map(([table]) => table);
-        throw new Error(`Deletion could not be verified — data remains in ${left.join(', ')}. Please contact support.`);
+        const detail = [
+          left.length > 0 ? `data remains in ${left.join(', ')}` : '',
+          body.unreadable?.length ? `could not check ${body.unreadable.join(', ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('; ');
+        throw new Error(`Deletion could not be verified — ${detail}. Please contact support.`);
       }
 
       await supabase.auth.signOut();

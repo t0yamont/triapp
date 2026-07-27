@@ -55,6 +55,9 @@ export async function DELETE(request: Request): Promise<Response> {
       return NextResponse.json({
         verified: erasure.verified,
         remaining: erasure.remaining,
+        // Tables whose count could not be read. Without these, "all zero" would mean "everything
+        // we managed to check was empty", which is not the same claim.
+        unreadable: erasure.unreadable,
         // Refs, not tokens — the tokens live in Vault. Revoking at each provider and destroying
         // the secrets is a separate job; surfacing the list here is what makes it auditable.
         providersToRevoke: erasure.providersToRevoke.map((p) => p.provider),

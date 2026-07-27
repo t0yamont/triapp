@@ -202,35 +202,56 @@ export interface ErasureResult {
   providersToRevoke: ProviderRevocation[];
   /** Per-table rows still present after the delete. All zero ⇒ erasure verified. */
   remaining: Record<string, number>;
+  /** Tables whose count could not be read. Non-empty ⇒ not verified, whatever the counts say. */
+  unreadable: string[];
   verified: boolean;
+}
+
+export interface RowCensus {
+  counts: Record<string, number>;
+  unreadable: string[];
 }
 
 /**
  * Rows still holding this athlete's data. Erasure "must complete within 30 days and be
  * verifiable" (§7), so this is the evidence, runnable before and after a delete.
  *
- * Children are not counted directly: each cascades from a parent that *is* counted, so a
- * non-zero child count without a non-zero parent count is not reachable.
+ * Two details that decide whether the evidence is worth anything:
+ *
+ * - **It counts the key column, not `id`.** Four of these tables have no `id` at all — they are
+ *   keyed by `(athlete_id, …)` — so selecting one errors, and an error read as zero would report
+ *   a table as empty precisely when it could not be checked.
+ * - **A failed read is not a zero.** It goes in `unreadable`, and any entry there means erasure is
+ *   unverified. "We could not look" and "there is nothing there" must never collapse into the
+ *   same answer; that collapse is exactly the "probably deleted" position §7 rules out.
+ *
+ * Children are not counted directly: each cascades from a parent that *is* counted, so a non-zero
+ * child count without a non-zero parent count is not reachable.
  */
-export async function countAthleteRows(client: TriflowClient, athleteId: string): Promise<Record<string, number>> {
+export async function countAthleteRows(client: TriflowClient, athleteId: string): Promise<RowCensus> {
   const db = dynamic(client);
   const counts: Record<string, number> = {};
+  const unreadable: string[] = [];
 
-  const profile = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('id', athleteId);
-  counts['profiles'] = profile.count ?? 0;
+  const countBy = async (table: string, column: string): Promise<number> => {
+    const { count, error } = await db.from(table).select(column, { count: 'exact', head: true }).eq(column, athleteId);
+    if (error || count === null) {
+      unreadable.push(table);
+      return 0;
+    }
+    return count;
+  };
+
+  counts['profiles'] = await countBy('profiles', 'id');
 
   for (const table of ATHLETE_KEYED_TABLES) {
-    const own = await db.from(table).select('id', { count: 'exact', head: true }).eq('athlete_id', athleteId);
-    let n = own.count ?? 0;
-
+    let n = await countBy(table, 'athlete_id');
     const secondColumn = (SECOND_OWNER_COLUMNS as Record<string, string | undefined>)[table];
-    if (secondColumn !== undefined) {
-      const asOther = await db.from(table).select('id', { count: 'exact', head: true }).eq(secondColumn, athleteId);
-      n += asOther.count ?? 0;
-    }
+    if (secondColumn !== undefined) n += await countBy(table, secondColumn);
     counts[table] = n;
   }
-  return counts;
+
+  return { counts, unreadable: [...new Set(unreadable)] };
 }
 
 /**
@@ -272,11 +293,12 @@ export async function deleteAthleteData(client: TriflowClient, athleteId: string
   const { error } = await db.from('profiles').delete().eq('id', athleteId);
   if (error) throw new Error(`erasure failed, nothing deleted: ${error.message}`);
 
-  const remaining = await countAthleteRows(client, athleteId);
+  const census = await countAthleteRows(client, athleteId);
   return {
     athleteId,
     providersToRevoke,
-    remaining,
-    verified: Object.values(remaining).every((n) => n === 0),
+    remaining: census.counts,
+    unreadable: census.unreadable,
+    verified: census.unreadable.length === 0 && Object.values(census.counts).every((n) => n === 0),
   };
 }

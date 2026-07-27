@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { checkAgeEligibility, grantConsent, MIN_AGE_YEARS, type AgeRejection } from '@ironflow/core/consent';
 import { Button, Card, Field, Input, Select } from '@ironflow/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -10,11 +11,26 @@ import { NotConnectedBanner } from '../../../components/NotConnectedBanner';
 import { useSkipOnboardingIfPlanned } from '../../../lib/post-auth';
 import { supabaseConfigured, useSupabase } from '../../../lib/supabase';
 
-const CONSENT_VERSION = 'v1';
+// Consent is versioned policy, not a form field (02-ARCHITECTURE.md §7) — the version, the 16+
+// gate and the row shape all come from `@ironflow/core/consent` so that bumping the policy
+// re-prompts everyone instead of quietly applying to new sign-ups only.
+const AGE_MESSAGE: Record<AgeRejection, string> = {
+  malformed_date: "That date doesn't look right.",
+  not_yet_born: "That date is in the future.",
+  under_minimum_age: `You must be ${MIN_AGE_YEARS} or over to use TriFlow.`,
+};
 
 const schema = z.object({
   displayName: z.string().min(1, 'Required'),
-  dateOfBirth: z.string().min(1, 'Required'),
+  dateOfBirth: z
+    .string()
+    .min(1, 'Required')
+    // A hard stop, not a warning: below 16 consent has to come from a parent, and there is no
+    // flow for that. Checked in calendar years so the day before a birthday is not rounded up.
+    .superRefine((value, ctx) => {
+      const check = checkAgeEligibility(value, new Date().toISOString());
+      if (!check.eligible) ctx.addIssue({ code: z.ZodIssueCode.custom, message: AGE_MESSAGE[check.reason] });
+    }),
   sex: z.enum(['male', 'female', 'prefer_not_to_say']),
   units: z.enum(['metric', 'imperial']),
   timezone: z.string().min(1, 'Required'),
@@ -59,9 +75,7 @@ export default function AboutPage() {
       sex: values.sex,
       units: values.units,
       timezone: values.timezone,
-      health_data_consent_at: now,
-      health_data_consent_version: CONSENT_VERSION,
-      medical_disclaimer_ack_at: now,
+      ...grantConsent(now),
     });
     setBusy(false);
     if (error) {
@@ -94,7 +108,12 @@ export default function AboutPage() {
           <Field label="Name" htmlFor="displayName" error={errors.displayName?.message}>
             <Input id="displayName" autoComplete="name" {...register('displayName')} />
           </Field>
-          <Field label="Date of birth" htmlFor="dob" hint="Used for age-based safety defaults (16+)." error={errors.dateOfBirth?.message}>
+          <Field
+            label="Date of birth"
+            htmlFor="dob"
+            hint={`Used for age-based safety defaults. You must be ${MIN_AGE_YEARS} or over.`}
+            error={errors.dateOfBirth?.message}
+          >
             <Input id="dob" type="date" {...register('dateOfBirth')} />
           </Field>
           <div className="grid grid-cols-2 gap-4">

@@ -26,6 +26,7 @@ import {
 } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
 import { emitAlert, guardrailAlert } from '../observability/syncHealth.js';
+import { insertPlanMutations } from './notifications.js';
 import type { Json } from '../database.types.js';
 import type { Tables, TablesInsert } from '../types.js';
 
@@ -365,7 +366,7 @@ export async function persistWorkoutMoves(
   const before = Object.fromEntries(moves.map((m) => [m.id, prior.get(m.id)?.scheduled_date ?? null]));
   const after = Object.fromEntries(moves.map((m) => [m.id, m.scheduledDate]));
 
-  const { error: auditError } = await client.from('plan_mutations').insert({
+  const { error: auditError } = await insertPlanMutations(client, [{
     athlete_id: athleteId,
     plan_id: planId,
     actor: mutation.actor,
@@ -376,7 +377,7 @@ export async function persistWorkoutMoves(
     before: before as Json,
     after: after as Json,
     ...(engineInputs !== undefined ? { engine_inputs: engineInputs } : {}),
-  });
+  }]);
 
   if (auditError) {
     // An unaudited plan change violates hard rule #10 — undo it rather than keep it.

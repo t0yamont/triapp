@@ -775,6 +775,7 @@ export interface Database {
           health_data_consent_at: string | null
           health_data_consent_version: string | null
           medical_disclaimer_ack_at: string | null
+          notification_prefs: Json
           created_at: string
           updated_at: string
         };
@@ -790,6 +791,7 @@ export interface Database {
           health_data_consent_at?: string | null
           health_data_consent_version?: string | null
           medical_disclaimer_ack_at?: string | null
+          notification_prefs?: Json
           created_at?: string
           updated_at?: string
         };
@@ -805,6 +807,7 @@ export interface Database {
           health_data_consent_at?: string | null
           health_data_consent_version?: string | null
           medical_disclaimer_ack_at?: string | null
+          notification_prefs?: Json
           created_at?: string
           updated_at?: string
         };

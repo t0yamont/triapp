@@ -4,6 +4,7 @@ import { Button, Card, ConfidenceDot, Field, Input, Select } from '@ironflow/ui'
 import { FieldTestCard } from '../../../components/settings/FieldTestCard';
 import { PrivacyCard } from '../../../components/settings/PrivacyCard';
 import { SyncHealthCard } from '../../../components/settings/SyncHealthCard';
+import { NotificationSettingsCard } from '../../../components/settings/NotificationsCard';
 import { ZonesCard } from '../../../components/settings/ZonesCard';
 
 interface Anchor {
@@ -39,17 +40,6 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
       </div>
       {children}
     </Card>
-  );
-}
-
-function Toggle({ on, label }: { on: boolean; label: string }) {
-  return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-body text-text">{label}</span>
-      <span className={`relative h-6 w-10 rounded-full transition-colors ${on ? 'bg-accent' : 'bg-white/12'}`} aria-hidden>
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? 'left-[18px]' : 'left-0.5'}`} />
-      </span>
-    </div>
   );
 }
 
@@ -110,14 +100,7 @@ export default function SettingsPage() {
 
           <SyncHealthCard />
 
-          <Section title="Notifications">
-            <div className="flex flex-col divide-y divide-white/[0.06]">
-              <Toggle on label="Morning readiness & today's session" />
-              <Toggle on label="Plan changes & adaptations" />
-              <Toggle on={false} label="Weekly summary" />
-              <Toggle on label="Scheduled test reminders" />
-            </div>
-          </Section>
+          <NotificationSettingsCard />
         </div>
 
         <div className="flex flex-col gap-6">

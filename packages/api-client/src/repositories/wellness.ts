@@ -10,6 +10,7 @@
 
 import type { AdaptationAction, DailyWellness, PlanMutation, Readiness, SZone } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
+import { insertPlanMutations } from './notifications.js';
 import type { Json } from '../database.types.js';
 import type { Tables } from '../types.js';
 
@@ -152,7 +153,7 @@ export async function persistSessionAdaptation(
 
   await setZone(toZone);
 
-  const { error: auditError } = await client.from('plan_mutations').insert({
+  const { error: auditError } = await insertPlanMutations(client, [{
     athlete_id: athleteId,
     plan_id: planId,
     actor: mutation.actor,
@@ -162,7 +163,7 @@ export async function persistSessionAdaptation(
     affected_workout_ids: [workoutId],
     before: { goal_zone: fromZone } as Json,
     after: { goal_zone: toZone } as Json,
-  });
+  }]);
 
   if (auditError) {
     await setZone(fromZone).catch(() => undefined); // the original failure is the one to report

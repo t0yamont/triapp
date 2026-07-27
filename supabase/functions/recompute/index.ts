@@ -16,6 +16,7 @@
 
 import {
   createServiceClient,
+  notifyDue,
   recomputeDailyMetrics,
   recomputeMeanMax,
   withJobLog,
@@ -83,7 +84,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const today = localToday(profile.timezone);
         const daily = await recomputeDailyMetrics(client, profile.id, today);
         const curves = await recomputeMeanMax(client, profile.id, today);
-        return { ...daily, ...curves };
+        // The nightly job is the only thing that knows it is the athlete's morning, so it is
+        // also where the two time-based notifications belong.
+        const sent = await notifyDue(client, profile.id, today);
+        return { ...daily, ...curves, notified: sent };
       });
       ok += 1;
     } catch {

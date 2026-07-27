@@ -12,6 +12,7 @@ import { WeekStrip } from '../../../components/today/WeekStrip';
 import { ComingUp } from '../../../components/today/ComingUp';
 import { AttentionCard } from '../../../components/today/AttentionCard';
 import { LiveDecisionLog } from '../../../components/today/DecisionLog';
+import { NotificationsCard } from '../../../components/today/NotificationsCard';
 
 /** No change was made — what §10.2 returns for a day it decided to leave alone. */
 const UNADAPTED: AdaptationResult = {
@@ -95,6 +96,8 @@ export default function TodayPage() {
 
       <ComingUp sessions={comingUp} />
       <AttentionCard items={attention} />
+      {/* Unread first, then the permanent record. Both render nothing when empty. */}
+      <NotificationsCard />
       {/* The engine decision log (§8). Renders only once something has actually changed. */}
       <LiveDecisionLog today={todayISO()} />
     </div>

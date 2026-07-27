@@ -8,6 +8,7 @@
 
 import { addDaysISO, daysBetweenISO, type ReplanDecision, type ReplanWeekSummary, type SZone } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
+import { insertPlanMutations } from './notifications.js';
 import type { Json } from '../database.types.js';
 import type { Tables } from '../types.js';
 
@@ -86,7 +87,8 @@ export async function persistReplanDecisions(
     if (error) throw error;
   }
 
-  const { error: auditError } = await client.from('plan_mutations').insert(
+  const { error: auditError } = await insertPlanMutations(
+    client,
     decisions.map((d) => ({
       athlete_id: athleteId,
       plan_id: planId,

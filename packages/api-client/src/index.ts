@@ -23,3 +23,4 @@ export * from './observability/syncHealth.js';
 export * from './time.js';
 export * from './repositories/decisions.js';
 export * from './repositories/recompute.js';
+export * from './repositories/notifications.js';

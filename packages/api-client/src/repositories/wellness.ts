@@ -8,6 +8,7 @@
  * be wasteful — the stored value is the engine's answer *at the time*, kept for display.
  */
 
+import { addDaysISO } from '@ironflow/core/physio';
 import type { AdaptationAction, DailyWellness, PlanMutation, Readiness, SZone } from '@ironflow/core/physio';
 import type { TriflowClient } from '../client.js';
 import { insertPlanMutations } from './notifications.js';
@@ -124,11 +125,60 @@ export function adaptedZone(action: AdaptationAction, current: SZone): SZone | n
  * As in `persistWorkoutMoves`, a failed audit insert rolls the zone change back rather than
  * leaving an unaudited plan change.
  *
- * ponytail: applies the *day* part of the adaptation only. `weekLoadDeltaPct` and
- * `suppressS3Days` (the week-level half of `convert_week_to_recovery` and the 2-day rule) are
- * not applied to future workouts yet — that belongs with `weeklyReplan`, and the audit row
- * records the full reason in the meantime so nothing is lost.
+ * Applies the week-level half too — `weekLoadDeltaPct` and `suppressS3Days`. Easing only today
+ * was the wrong half to stop at: the rules that produce a week delta (`convert_week_to_recovery`,
+ * the 2-day low-readiness rule) exist precisely because one eased session does not answer a
+ * pattern, and an athlete flagged on Tuesday would train an unchanged Wednesday and Thursday.
+ *
+ * Both directions are downgrade-only (I12/I14): loads are scaled by a factor that is never above
+ * 1, and S3 is suppressed to S2, never raised. Only *future* workouts are touched — rewriting a
+ * session the athlete has already done would falsify the record.
  */
+export interface WeekAdaptationTarget {
+  id: string;
+  scheduledDate: string;
+  goalZone: SZone;
+  plannedDurationMin: number;
+  plannedLoad: number;
+}
+
+export interface WeekAdaptationChange {
+  id: string;
+  goalZone: SZone;
+  plannedDurationMin: number;
+  plannedLoad: number;
+}
+
+/**
+ * What the week-level half of an adaptation does to the sessions still ahead.
+ *
+ * Pure, so the arithmetic and the downgrade-only guarantee are testable without a database.
+ * Returns only rows that actually change — an unchanged session must not collect a write, a
+ * new `updated_at`, or a device republish.
+ */
+export function planWeekAdaptation(
+  future: readonly WeekAdaptationTarget[],
+  adaptation: { weekLoadDeltaPct: number; suppressS3Days: number },
+  today: string,
+): WeekAdaptationChange[] {
+  // I12: a readiness response may only ever reduce. A positive delta would be a bug upstream,
+  // and clamping here means it cannot become an *increase* in an athlete's week.
+  const scale = 1 + Math.min(0, adaptation.weekLoadDeltaPct) / 100;
+  const suppressUntil = addDaysISO(today, Math.max(0, adaptation.suppressS3Days));
+
+  const changes: WeekAdaptationChange[] = [];
+  for (const w of future) {
+    const suppressed = w.goalZone === 'S3' && w.scheduledDate <= suppressUntil;
+    const goalZone: SZone = suppressed ? 'S2' : w.goalZone;
+    const plannedDurationMin = Math.round(w.plannedDurationMin * scale);
+    const plannedLoad = Math.round(w.plannedLoad * scale);
+
+    if (goalZone === w.goalZone && plannedDurationMin === w.plannedDurationMin && plannedLoad === w.plannedLoad) continue;
+    changes.push({ id: w.id, goalZone, plannedDurationMin, plannedLoad });
+  }
+  return changes;
+}
+
 export async function persistSessionAdaptation(
   client: TriflowClient,
   args: {
@@ -138,9 +188,13 @@ export async function persistSessionAdaptation(
     fromZone: SZone;
     toZone: SZone;
     mutation: PlanMutation;
+    /** The week-level half. Omitted ⇒ today's session only. */
+    adaptation?: { weekLoadDeltaPct: number; suppressS3Days: number };
+    /** The athlete's local date; the week half only touches sessions after it. */
+    today?: string;
   },
 ): Promise<void> {
-  const { athleteId, planId, workoutId, fromZone, toZone, mutation } = args;
+  const { athleteId, planId, workoutId, fromZone, toZone, mutation, adaptation, today } = args;
 
   const setZone = async (zone: SZone): Promise<void> => {
     const { error } = await client
@@ -153,6 +207,52 @@ export async function persistSessionAdaptation(
 
   await setZone(toZone);
 
+  // The week-level half: everything still ahead of the athlete this week.
+  const weekChanges: WeekAdaptationChange[] = [];
+  const restore: WeekAdaptationChange[] = [];
+  if (adaptation && today && (adaptation.weekLoadDeltaPct < 0 || adaptation.suppressS3Days > 0)) {
+    const { data: future } = await client
+      .from('workouts')
+      .select('id, scheduled_date, goal_zone, planned_duration_min, planned_load')
+      .eq('athlete_id', athleteId)
+      .eq('plan_id', planId)
+      .eq('status', 'scheduled')
+      .gt('scheduled_date', today)
+      .lte('scheduled_date', addDaysISO(today, 7));
+
+    const targets = (future ?? []).map((w) => ({
+      id: w.id,
+      scheduledDate: w.scheduled_date,
+      goalZone: w.goal_zone,
+      plannedDurationMin: w.planned_duration_min,
+      plannedLoad: w.planned_load,
+    }));
+    weekChanges.push(...planWeekAdaptation(targets, adaptation, today));
+    restore.push(
+      ...targets
+        .filter((t) => weekChanges.some((c) => c.id === t.id))
+        .map((t) => ({ id: t.id, goalZone: t.goalZone, plannedDurationMin: t.plannedDurationMin, plannedLoad: t.plannedLoad })),
+    );
+
+    for (const change of weekChanges) {
+      const { error } = await client
+        .from('workouts')
+        .update({
+          goal_zone: change.goalZone,
+          planned_duration_min: change.plannedDurationMin,
+          planned_load: change.plannedLoad,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', change.id)
+        .eq('athlete_id', athleteId);
+      if (error) {
+        await revert(client, athleteId, restore);
+        await setZone(fromZone).catch(() => undefined);
+        throw error;
+      }
+    }
+  }
+
   const { error: auditError } = await insertPlanMutations(client, [{
     athlete_id: athleteId,
     plan_id: planId,
@@ -160,13 +260,27 @@ export async function persistSessionAdaptation(
     reason_code: mutation.reasonCode,
     reason_text: mutation.reasonText,
     ...(mutation.ruleId ? { rule_id: mutation.ruleId } : {}),
-    affected_workout_ids: [workoutId],
-    before: { goal_zone: fromZone } as Json,
-    after: { goal_zone: toZone } as Json,
+    affected_workout_ids: [workoutId, ...weekChanges.map((c) => c.id)],
+    before: { goal_zone: fromZone, week: restore } as unknown as Json,
+    after: { goal_zone: toZone, week: weekChanges } as unknown as Json,
   }]);
 
   if (auditError) {
+    // An unaudited plan change violates hard rule #10 — undo all of it, not just today.
+    await revert(client, athleteId, restore);
     await setZone(fromZone).catch(() => undefined); // the original failure is the one to report
     throw auditError;
+  }
+}
+
+/** Put the week back as it was. Best-effort: the error being handled is the one worth raising. */
+async function revert(client: TriflowClient, athleteId: string, previous: readonly WeekAdaptationChange[]): Promise<void> {
+  for (const w of previous) {
+    await client
+      .from('workouts')
+      .update({ goal_zone: w.goalZone, planned_duration_min: w.plannedDurationMin, planned_load: w.plannedLoad })
+      .eq('id', w.id)
+      .eq('athlete_id', athleteId)
+      .then(undefined, () => undefined);
   }
 }

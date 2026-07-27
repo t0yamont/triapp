@@ -68,16 +68,28 @@ function liveDistribution(rows: WorkoutRow[]): Distribution {
   return { S1: pct('S1'), S2: pct('S2'), S3: pct('S3') };
 }
 
-export function toWeekStrip(rows: WorkoutRow[], phase: PlanPhase, today: string): WeekStripView {
+export function toWeekStrip(
+  rows: WorkoutRow[],
+  phase: PlanPhase,
+  today: string,
+  /** Measured load per completed activity, keyed by activity id. */
+  actualLoadById: Map<string, number> = new Map(),
+): WeekStripView {
   const days = WEEKDAYS.map((d) => {
     const forDay = rows.filter((w) => dayOfWeekISO(w.scheduled_date) === d.index);
     return {
       index: d.index,
       short: d.short,
       plannedLoad: forDay.reduce((a, w) => a + w.planned_load, 0),
-      // ponytail: completed ⇒ its planned load. Actual load needs the linked activity's
-      // computed load — swap when activities are ingested and joined.
-      doneLoad: forDay.filter((w) => w.status === 'completed').reduce((a, w) => a + w.planned_load, 0),
+      // What the session actually cost, from the activity it was linked to — falling back to
+      // the planned load only when nothing was ingested for it. Reporting the planned figure
+      // for a session the athlete cut short is the bar claiming work that never happened.
+      doneLoad: forDay
+        .filter((w) => w.status === 'completed')
+        .reduce((a, w) => {
+          const measured = w.completed_activity_id ? actualLoadById.get(w.completed_activity_id) : undefined;
+          return a + (measured ?? w.planned_load);
+        }, 0),
       isToday: d.index === dayOfWeekISO(today),
     };
   });
@@ -341,6 +353,19 @@ export function useLiveWeek(): { live: LiveWeek | null; loading: boolean } {
         const today = todayISO();
         const start = weekStartISO(today);
         const rows = await getWorkoutsInRange(supabase, athleteId, start, addDaysISO(start, 6));
+        // Only for the sessions that were actually completed — no activity, no query.
+        const completedIds = rows.map((w) => w.completed_activity_id).filter((id): id is string => id !== null);
+        const actualLoadById = new Map<string, number>();
+        if (completedIds.length > 0) {
+          const { data: done } = await supabase
+            .from('activities')
+            .select('id, internal_load, external_load, perceived_load')
+            .in('id', completedIds);
+          for (const a of done ?? []) {
+            const load = a.internal_load ?? a.external_load ?? a.perceived_load;
+            if (load !== null && load !== undefined) actualLoadById.set(a.id, Number(load));
+          }
+        }
         const sessions = rows.map(fromWorkoutRow).filter((s): s is WeekSession => s !== null);
         if (sessions.length === 0) return done(null);
 
@@ -366,7 +391,7 @@ export function useLiveWeek(): { live: LiveWeek | null; loading: boolean } {
             hoursCeiling: availability?.weeklyHoursMax ?? DEFAULT_HOURS_CEILING,
             sessions,
           },
-          strip: toWeekStrip(rows, phase, today),
+          strip: toWeekStrip(rows, phase, today, actualLoadById),
           comingUp: toComingUp(rows, today),
           athleteId,
           planId: plan.id,

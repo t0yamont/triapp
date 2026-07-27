@@ -10,19 +10,21 @@
  *    ingest (§11), no athlete model needed.
  *  - **Distribution** is genuinely the athlete's, from the zones of the sessions they
  *    actually completed.
- *  - **CTL/ATL/TSB** are still computed from the *planned* load of completed sessions. TRIMP
- *    is now measured at ingest (`activities.internal_load`, from HR zones), but only for
- *    activities uploaded *after* the athlete model existed — so a 12-week window is normally
- *    part measured, part not. The shape and trend are right; the units are "what the plan
- *    asked for", not "what the body received". `loadBasis` says so, and the UI must keep
- *    saying so.
- *
- * ponytail: switching to `internal_load` is a swap of where the daily numbers come from
- * (`fitnessSeries` itself doesn't change) — but it needs a third honest `loadBasis` value for
- * the mixed window, and days keyed by `activityLocalDate`, not by UTC.
+ *  - **CTL/ATL/TSB** now come from `daily_metrics`, written by the nightly recompute from the
+ *    load measured on each activity and keyed by the athlete's local date. Until that job has
+ *    run for an athlete there is nothing stored, so this falls back to the planned load of
+ *    completed sessions — the right shape and trend, in the units of "what the plan asked for"
+ *    rather than "what the body received". `loadBasis` says which, and the UI must keep saying
+ *    so.
  */
 
-import { getActivitiesInRange, getActivePlan, getPlanWeeks, getWorkoutsInRange } from '@ironflow/api-client';
+import {
+  getActivitiesInRange,
+  getActivePlan,
+  getDailyMetricsInRange,
+  getPlanWeeks,
+  getWorkoutsInRange,
+} from '@ironflow/api-client';
 import {
   DECOUPLING_TARGET_PCT,
   addDaysISO,
@@ -84,24 +86,51 @@ export function useLiveAnalytics(): { live: LiveAnalytics | null; loading: boole
 
         const today = todayISO();
         const from = addDaysISO(today, -CHART_WEEKS * DAYS_PER_WEEK);
-        const [workouts, activities, plan] = await Promise.all([
+        const [workouts, activities, plan, metrics] = await Promise.all([
           getWorkoutsInRange(supabase, athleteId, from, today),
           getActivitiesInRange(supabase, athleteId, from, today),
           getActivePlan(supabase, athleteId),
+          getDailyMetricsInRange(supabase, athleteId, from, today),
         ]);
         if (workouts.length === 0) return done(null);
 
-        // ── Daily load: what was actually completed, day by day ──────────────
-        const byDay = new Map<string, number>();
-        for (const w of workouts) {
-          if (w.status !== 'completed') continue;
-          byDay.set(w.scheduled_date, (byDay.get(w.scheduled_date) ?? 0) + Number(w.planned_load));
+        // ── Daily load ───────────────────────────────────────────────────────
+        // Prefer what the nightly recompute stored: CTL/ATL from the load actually measured on
+        // each activity (§5.1), which is what the numbers are supposed to mean. Before that job
+        // has run for an athlete there is nothing stored, so fall back to the planned load of
+        // completed sessions — right shape and trend, wrong units — and say so in `loadBasis`.
+        const stored = metrics.filter((m) => m.ctl_total !== null);
+        let series: FitnessPoint[];
+        let loadBasis: LiveAnalytics['loadBasis'];
+
+        if (stored.length > 0) {
+          const byDate = new Map(stored.map((m) => [m.date, m]));
+          series = [];
+          for (let i = CHART_WEEKS * DAYS_PER_WEEK; i >= 0; i--) {
+            const row = byDate.get(addDaysISO(today, -i));
+            const previous = series[series.length - 1];
+            // A day the job has not written yet holds its last known value rather than dropping
+            // to zero, which would read as a collapse in fitness that never happened.
+            series.push(
+              row
+                ? { ctl: Number(row.ctl_total), atl: Number(row.atl_total ?? 0), tsb: Number(row.tsb_total ?? 0) }
+                : (previous ?? { ctl: 0, atl: 0, tsb: 0 }),
+            );
+          }
+          loadBasis = 'measured';
+        } else {
+          const byDay = new Map<string, number>();
+          for (const w of workouts) {
+            if (w.status !== 'completed') continue;
+            byDay.set(w.scheduled_date, (byDay.get(w.scheduled_date) ?? 0) + Number(w.planned_load));
+          }
+          const dailyLoads: number[] = [];
+          for (let i = CHART_WEEKS * DAYS_PER_WEEK; i >= 0; i--) {
+            dailyLoads.push(byDay.get(addDaysISO(today, -i)) ?? 0);
+          }
+          series = fitnessSeries(dailyLoads);
+          loadBasis = 'planned_completed';
         }
-        const dailyLoads: number[] = [];
-        for (let i = CHART_WEEKS * DAYS_PER_WEEK; i >= 0; i--) {
-          dailyLoads.push(byDay.get(addDaysISO(today, -i)) ?? 0);
-        }
-        const series = fitnessSeries(dailyLoads);
         const current = series[series.length - 1];
         if (!current) return done(null);
 
@@ -165,7 +194,7 @@ export function useLiveAnalytics(): { live: LiveAnalytics | null; loading: boole
           series,
           current,
           peakCtl: Math.max(...series.map((p) => p.ctl)),
-          loadBasis: 'planned_completed',
+          loadBasis,
           distribution,
           durability,
         });

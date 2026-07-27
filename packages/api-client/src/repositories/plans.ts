@@ -146,8 +146,14 @@ export function auditPlanGuardrails(plan: GeneratedPlan, weekStartDay = 1): Viol
 
 /**
  * Persist a generated plan: one training_plans row, its plan_weeks, then all workouts wired
- * to their week. Returns the new plan id. Throws on the first failed insert (the caller should
- * run this server-side; a real transaction would use an Edge Function / RPC — see follow-up).
+ * to their week.
+ *
+ * Three inserts with no transaction between them, so a failure part-way used to leave a
+ * `training_plans` row with no weeks or no workouts — and `getActivePlan` orders by `created_at`
+ * and takes the newest, so the athlete would land on a dashboard showing an empty plan with no
+ * way to regenerate. Deleting the header on failure is enough to undo all of it: `plan_weeks`
+ * and `workouts` both cascade from it. That is cheaper and easier to read than moving three
+ * inserts into a plpgsql RPC to get a real transaction, and it removes the same failure.
  */
 export async function insertGeneratedPlan(
   client: TriflowClient,
@@ -166,20 +172,27 @@ export async function insertGeneratedPlan(
   if (planErr || !planRow) throw new Error(`training_plans insert failed: ${planErr?.message ?? 'no row'}`);
   const planId = planRow.id;
 
+  /** Undo the whole plan. The cascade takes the weeks and workouts with it. */
+  const discard = async (reason: string): Promise<never> => {
+    await client.from('training_plans').delete().eq('id', planId).then(undefined, () => undefined);
+    throw new Error(reason);
+  };
+
   const { data: weekRows, error: weekErr } = await client
     .from('plan_weeks')
     .insert(plan.weeks.map((w) => toPlanWeekRow(planId, plan.startDate, w, meta.course)))
     .select('id, week_number');
-  if (weekErr || !weekRows) throw new Error(`plan_weeks insert failed: ${weekErr?.message ?? 'no rows'}`);
+  if (weekErr || !weekRows) return discard(`plan_weeks insert failed: ${weekErr?.message ?? 'no rows'}`);
   const weekIdByNumber = new Map<number, string>(weekRows.map((w) => [w.week_number, w.id]));
 
-  const workoutRows = plan.workouts.map((sw) => {
+  const workoutRows: TablesInsert<'workouts'>[] = [];
+  for (const sw of plan.workouts) {
     const weekId = weekIdByNumber.get(sw.weekNumber);
-    if (!weekId) throw new Error(`no plan_week for week ${sw.weekNumber}`);
-    return toWorkoutRow(athleteId, planId, weekId, sw);
-  });
+    if (!weekId) return discard(`no plan_week for week ${sw.weekNumber}`);
+    workoutRows.push(toWorkoutRow(athleteId, planId, weekId, sw));
+  }
   const { error: woErr } = await client.from('workouts').insert(workoutRows);
-  if (woErr) throw new Error(`workouts insert failed: ${woErr.message}`);
+  if (woErr) return discard(`workouts insert failed: ${woErr.message}`);
 
   return { planId };
 }

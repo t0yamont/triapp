@@ -176,6 +176,10 @@ export function useLiveReadiness(): UseLiveReadiness {
               fromZone: todaySession.sZone,
               toZone,
               mutation: response.mutation,
+              // The week half — `convert_week_to_recovery` and the 2-day rule mean the rest of
+              // the week, not just today; easing one session does not answer a pattern.
+              adaptation: { weekLoadDeltaPct: response.weekLoadDeltaPct, suppressS3Days: response.suppressS3Days },
+              today,
             });
           }
         }

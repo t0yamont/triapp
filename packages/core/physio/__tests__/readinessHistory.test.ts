@@ -215,3 +215,33 @@ describe('readinessCoverage', () => {
     expect(readinessCoverage(history, TODAY).daysLogged).toBe(1);
   });
 });
+
+describe('buildReadinessInputs — partial logging', () => {
+  const n = READINESS_MIN_BASELINE_SAMPLES + 3;
+
+  it('includes only the metrics the athlete actually logs', () => {
+    // An athlete who logs HRV from a strap but never fills in sleep or wellness.
+    const hrvOnly = buildReadinessInputs(series(n, (i) => ({ hrvRmssd: 50 + (i % 4) })), TODAY);
+    expect(hrvOnly.hrv).toBeDefined();
+    expect(hrvOnly.sleep).toBeUndefined();
+    expect(hrvOnly.wellness).toBeUndefined();
+    expect(hrvOnly.restingHr).toBeUndefined();
+  });
+
+  it('includes only the subjective metrics for an athlete with no wearable', () => {
+    const subjective = buildReadinessInputs(
+      series(n, (i) => ({
+        sleepDurationMin: 420 + (i % 5) * 10,
+        wellnessFatigue: 2 + (i % 3),
+        wellnessSoreness: 2,
+        wellnessStress: 2,
+        wellnessMood: 4,
+      })),
+      TODAY,
+    );
+    expect(subjective.sleep).toBeDefined();
+    expect(subjective.wellness).toBeDefined();
+    expect(subjective.hrv).toBeUndefined();
+    expect(subjective.restingHr).toBeUndefined();
+  });
+});

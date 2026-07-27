@@ -96,3 +96,35 @@ describe('decouplingFromStreams', () => {
     expect(decouplingFromStreams(ride(20, () => 150, () => 0), opts)).toBeNull(); // never moving
   });
 });
+
+describe('decouplingFromStreams — degenerate streams', () => {
+  it('falls back to sample index when the stream carries no timestamps', () => {
+    const n = LONG;
+    const r = decouplingFromStreams(
+      {
+        hr: Array.from({ length: n }, (_, i) => (i < n / 2 ? 140 : 150)),
+        powerW: Array.from({ length: n }, () => 200),
+      },
+      opts,
+    );
+    // No timeS at all — indices stand in, so the halves still split and the drift is found.
+    expect(r).not.toBeNull();
+    expect(r!.decouplingPct).toBeGreaterThan(0);
+  });
+
+  it('returns null when every sample lands in one half', () => {
+    // All timestamps identical → midpoint == start == end, so nothing falls after it.
+    const n = LONG;
+    expect(
+      decouplingFromStreams(
+        {
+          timeS: Array.from({ length: n }, () => 0),
+          hr: Array.from({ length: n }, () => 140),
+          powerW: Array.from({ length: n }, () => 200),
+        },
+        opts,
+      ),
+    ).toBeNull();
+  });
+
+});

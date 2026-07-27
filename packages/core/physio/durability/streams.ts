@@ -34,8 +34,13 @@ const mean = (xs: number[]): number => xs.reduce((a, x) => a + x, 0) / xs.length
 
 /** Coefficient of variation (SD ÷ mean) — the §11.1 steadiness gate. */
 function cv(xs: number[]): number {
+  // Both guards are defensive: `summarise` is only ever reached once each half is known to
+  // hold ≥2 samples, and samples with non-positive intensity are filtered out before that,
+  // so neither an empty series nor a zero mean can occur through the public entry point.
+  /* v8 ignore next 2 */
   if (xs.length < 2) return 0;
   const m = mean(xs);
+  /* v8 ignore next */
   if (m === 0) return 0;
   const sd = Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1));
   return sd / m;

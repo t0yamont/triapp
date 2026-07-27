@@ -97,3 +97,58 @@ describe('matchActivityToWorkout', () => {
     }
   });
 });
+
+describe('matchActivityToWorkout — ranking between candidates', () => {
+  const activity = (over: Partial<CompletedActivity> = {}): CompletedActivity => ({
+    localDate: WED,
+    sport: 'run',
+    durationMin: 60,
+    ...over,
+  });
+
+  it('prefers the nearer day even when a further one matches the duration better', () => {
+    const m = matchActivityToWorkout(activity({ durationMin: 90 }), [
+      workout({ id: 'same-day', scheduledDate: WED, plannedDurationMin: 45 }),
+      workout({ id: 'next-day', scheduledDate: THU, plannedDurationMin: 90 }),
+    ]);
+    // The athlete did that session short/long — the shortfall is signal §10.3 needs, not
+    // something to hide by matching a different day.
+    expect(m!.workoutId).toBe('same-day');
+    expect(m!.dayOffset).toBe(0);
+  });
+
+  it('falls back to the closest planned duration when two candidates share a day', () => {
+    const m = matchActivityToWorkout(activity({ durationMin: 60 }), [
+      workout({ id: 'far', scheduledDate: WED, plannedDurationMin: 120 }),
+      workout({ id: 'near', scheduledDate: WED, plannedDurationMin: 55 }),
+    ]);
+    expect(m!.workoutId).toBe('near');
+    expect(m!.durationDeltaMin).toBe(5);
+  });
+
+  it('ranks a duration tie-break symmetrically, over or under', () => {
+    const m = matchActivityToWorkout(activity({ durationMin: 60 }), [
+      workout({ id: 'under-by-30', scheduledDate: WED, plannedDurationMin: 30 }),
+      workout({ id: 'over-by-5', scheduledDate: WED, plannedDurationMin: 65 }),
+    ]);
+    expect(m!.workoutId).toBe('over-by-5');
+  });
+});
+
+describe('matchActivityToWorkout — ranking is order-independent', () => {
+  const act: CompletedActivity = { localDate: WED, sport: 'run', durationMin: 60 };
+
+  it('picks the same-day session whichever order the candidates arrive in', () => {
+    const near = workout({ id: 'same-day', scheduledDate: WED, plannedDurationMin: 45 });
+    const far = workout({ id: 'next-day', scheduledDate: THU, plannedDurationMin: 60 });
+    expect(matchActivityToWorkout(act, [far, near])!.workoutId).toBe('same-day');
+    expect(matchActivityToWorkout(act, [near, far])!.workoutId).toBe('same-day');
+  });
+
+  it('picks the closest duration whichever order same-day candidates arrive in', () => {
+    const near = workout({ id: 'near', scheduledDate: WED, plannedDurationMin: 55 });
+    const far = workout({ id: 'far', scheduledDate: WED, plannedDurationMin: 120 });
+    expect(matchActivityToWorkout(act, [near, far])!.workoutId).toBe('near');
+    expect(matchActivityToWorkout(act, [far, near])!.workoutId).toBe('near');
+  });
+});

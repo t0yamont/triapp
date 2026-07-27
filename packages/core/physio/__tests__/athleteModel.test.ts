@@ -78,3 +78,14 @@ describe('buildAthleteModel', () => {
     }
   });
 });
+
+describe('buildAthleteModel — body mass', () => {
+  it('carries body mass through when it has been measured', () => {
+    const bodyMass = { value: 72.5, confidence: 0.9, provenance: 'lab_test' as const, measuredAt: NOW };
+    expect(buildAthleteModel(inputs({ bodyMass }))!.model.bodyMass).toEqual(bodyMass);
+  });
+
+  it('omits body mass entirely rather than carrying a placeholder', () => {
+    expect(buildAthleteModel(inputs())!.model.bodyMass).toBeUndefined();
+  });
+});

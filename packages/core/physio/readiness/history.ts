@@ -55,6 +55,9 @@ const mean = (xs: number[]): number => xs.reduce((a, x) => a + x, 0) / xs.length
 
 /** Sample standard deviation (n−1) — these are samples of an athlete's days, not a population. */
 function sampleSd(xs: number[]): number {
+  // Defensive: the only caller passes a baseline already checked to hold at least
+  // READINESS_MIN_BASELINE_SAMPLES (7) values, so a series this short cannot reach here.
+  /* v8 ignore next */
   if (xs.length < 2) return 0;
   const m = mean(xs);
   return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1));

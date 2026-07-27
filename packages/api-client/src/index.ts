@@ -18,3 +18,4 @@ export * from './repositories/athleteModel.js';
 export * from './repositories/fieldTests.js';
 export * from './repositories/privacy.js';
 export * from './devices/push.js';
+export * from './observability/log.js';

@@ -4,6 +4,7 @@ import { cn } from '@ironflow/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { ConsentGate } from './ConsentGate';
 
 type IconKey = 'today' | 'calendar' | 'activities' | 'analytics' | 'races' | 'settings';
 
@@ -74,6 +75,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   return (
     <div className="flex min-h-screen">
+      {/* Blocks the app while consent is outstanding — there is no lawful basis to show a plan
+          built from health data until it is given (§7). Renders nothing in the normal case. */}
+      <ConsentGate />
       <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 p-3 md:block">
         <div className="glass-raised flex h-full flex-col gap-6 rounded-sheet p-4">
           <div className="pt-2">

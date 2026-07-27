@@ -2,6 +2,7 @@
 
 import { Button, Card, ConfidenceDot, Field, Input, Select } from '@ironflow/ui';
 import { FieldTestCard } from '../../../components/settings/FieldTestCard';
+import { PrivacyCard } from '../../../components/settings/PrivacyCard';
 import { ZonesCard } from '../../../components/settings/ZonesCard';
 
 interface Anchor {
@@ -138,16 +139,11 @@ export default function SettingsPage() {
             </div>
           </Section>
 
+          <PrivacyCard />
+
           <Section title="Account">
-            <div className="flex flex-col gap-3">
-              <p className="text-body text-muted">
-                TriFlow provides training guidance, not medical advice. Your health data is yours — export or
-                delete it any time.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="secondary">Export my data</Button>
-                <Button variant="ghost">Sign out</Button>
-              </div>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="ghost">Sign out</Button>
             </div>
           </Section>
         </div>

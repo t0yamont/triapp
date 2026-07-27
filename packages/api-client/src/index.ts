@@ -16,4 +16,5 @@ export * from './repositories/wellness.js';
 export * from './repositories/replan.js';
 export * from './repositories/athleteModel.js';
 export * from './repositories/fieldTests.js';
+export * from './repositories/privacy.js';
 export * from './devices/push.js';

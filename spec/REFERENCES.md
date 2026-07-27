@@ -232,3 +232,94 @@ re-check rather than assume.
 - Elliott-Sale KJ, Minahan CL, de Jonge XAKJ, et al. **Methodological considerations for
   studies in sport and exercise science with women as participants.**
   *Sports Medicine* 2021;51:843–61.
+
+---
+
+## r2 revision — added and corrected citations (July 2026)
+
+Added by the evidence-review pass. Every entry here is load-bearing for a rule the engine now
+implements; see `03-ALGORITHM.md` §17 for the register of what each one changed.
+
+### §0.1 — what threshold anchoring actually buys
+
+- Meyler S, et al. **Fitness responses to exercise prescribed relative to physiological
+  thresholds vs. maxima: an individual participant data meta-analysis.** *Sports Medicine*
+  2025;55:301–23. — 42 studies, 1544 individuals. Larger mean VO₂max gain (4.1 vs
+  1.8 mL·kg⁻¹·min⁻¹) and a higher responder rate (64% vs 16% above a 1-MET MID). **Found no
+  reduction in the variability of adaptation** (SD 1.5 vs 1.7, BF = 0.55) — r1 claimed otherwise.
+- Meyler S, et al. *Experimental Physiology* 2023;108:581–94. — reduced *acute* response
+  heterogeneity in the heavy/severe domain anchored to critical power.
+- Pacitti L, et al. 2025; Shikaze K, et al. 2025. — no variance advantage at moderate intensity.
+
+### §6.1 — DFA-a1 reliability and the power/pace storage rule
+
+- Sempere-Ruiz N, et al. **Reliability of heart rate variability threshold determination.**
+  *Frontiers in Physiology* 2024;15:1329360. — ICC 0.87 (HRVT1) / 0.97 (HRVT2) in **power**
+  against typical errors of 8.8 / 4.1 bpm in HR. Basis for `DFA_A1_CANONICAL_UNIT`.
+- Sheoran S, et al. *Journal of Sports Sciences* 2024;42:2012–20. — ICC 0.76–0.86; typical error
+  ≈6 bpm (T1) and ≈8 bpm (T2). Basis for `DFA_A1_TYPICAL_ERROR_BPM`. Sex and cardiorespiratory
+  fitness moderate agreement, so no single population accuracy figure may be shown.
+- Kaufmann S, et al. 2023. — systematic review, 27 studies; ±11–13 bpm individual LoA.
+- Cassirame J, et al. *European Journal of Applied Physiology* 2025;125:523–33, **with the
+  Gronwald et al. rebuttal**. — the method is actively disputed. Basis for the immovable
+  `DFA_A1_CONFIDENCE_CEILING`.
+
+### §6.3 — passive critical speed/power determination
+
+- Smyth B, Muniz-Pumares D. **Calculation of critical speed from raw training data.**
+  *Medicine & Science in Sports & Exercise* 2020;52:2637–45.
+- Hunter B, et al. *International Journal of Sports Physiology and Performance*
+  2023;18:1449–56. — remote, unsupervised determination agrees acceptably with the laboratory.
+- Nixon RJ, et al. *European Journal of Applied Physiology* 2021;121:3133–44; Jones AM, et al.
+  2019. — CP/CS vs MLSS: close, and **which sits higher is unsettled**. Do not assert a direction.
+
+### §7.2 — interval design, and why the sports diverge
+
+- Almquist NW, et al. *Scandinavian Journal of Medicine & Science in Sports* 2020;30:1140–50. —
+  effort-matched 30/15 produced 14% higher mean power (421 vs 371 W) and ≈844 vs ≈589 s ≥90%
+  VO₂max in elite cyclists, at no higher RPE.
+- Fleckenstein D, et al. *Frontiers in Sports and Active Living* 2024;6:1507957. — the opposite
+  result in runners (≈201 vs ≈328 s). Same outcome measure, opposite conclusion: the
+  justification for a per-sport table.
+
+### §7.2b — sub-threshold volume and session splitting (new section)
+
+- Casado A, Foster C, Bakken M, Tjelta LI. **Does lactate-guided threshold interval training
+  within a high-volume low-intensity approach represent the "next step"?** *IJERPH*
+  2023;20:3782.
+- Kelemen B, et al. 2023. — systematic review of 13 elite Norwegian runners.
+- Talsnes RK, Torvik PØ, Skovereng K, Sandbakk Ø. *Frontiers in Physiology* 2024;15:1428536. —
+  **the one controlled comparison.** The single long session gave the larger stimulus (sRPE 7.0
+  vs 6.0; load 929 vs 743); the split day the lower next-morning cost. Basis for every
+  `SUBTHRESHOLD_SPLIT_*` constant, and for requiring a volume increase alongside a split.
+
+### §7.3 — strength, by speed band
+
+- Llanos-Lagos C, et al. **Effect of strength training programs in middle- and long-distance
+  runners' economy at different running speeds.** *Sports Medicine* 2024;54:895–932. — heavy
+  (>80% 1RM) best at higher speeds, plyometric below ≈12 km/h, combined ≈10–14.5 km/h;
+  **40–79% 1RM and isometric work showed no economy effect.** Basis for
+  `STRENGTH_SPEED_BANDS_KMH` and `STRENGTH_MIN_HEAVY_LOAD_1RM`.
+- Llanos-Lagos C, et al. *Sports Medicine* 2024;54:1801–33. — **no** strength method improved
+  VO₂max, vVO₂max, MMSS or sprint capacity. The UI must not imply otherwise.
+
+### §7.4 — heat dose, decay and re-induction
+
+- McDonald T, et al. **Heat acclimation: a Bayesian meta-regression.** *Comprehensive
+  Physiology* 2025;15(3):1–49. — 211 papers. 8 ± 4 exposures, 90 ± 36 min, 39.1 ± 4.8 °C;
+  end-exercise HR −17 bpm, core temperature −0.43 °C, plasma volume +5.6%, sweat rate
+  +163 mL·h⁻¹, time trial **+3.1%**. Names the source r1 cited anonymously.
+- Daanen HAM, Racinais S, Périard JD. **Heat acclimation decay and re-induction.** *Sports
+  Medicine* 2018;48:409–30. — ≈2.3%/day (HR) and ≈2.6%/day (core temp) decay; re-induction
+  8–12× faster. Basis for `HEAT_DECAY_PCT_PER_DAY` and the top-up rule.
+- Périard JD, et al. 2015. — exercise-based acclimation preferred on specificity grounds.
+
+### §13 — menstrual cycle, re-confirmed
+
+- *Journal of Applied Physiology* 2025;139:650–67. — high-methodological-standard review:
+  direction and magnitude of phase effects varied between studies; maximal and explosive
+  strength largely unaffected.
+- Colenso-Semple LM, D'Souza AC, Elliott-Sale KJ, Phillips SM. — no influence of cycle phase on
+  acute strength performance or resistance-training adaptation.
+- *Journal of Science and Medicine in Sport* 2025. — meta-aggregation of 17 studies: cycle
+  **symptoms** consistently affect training. The signal is symptoms, not phase.

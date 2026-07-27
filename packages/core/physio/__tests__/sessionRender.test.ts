@@ -118,3 +118,43 @@ describe('generatePlan attaches a real template to every workout', () => {
     expect(base.every((w) => w.purpose !== 'durability')).toBe(true);
   });
 });
+
+// §7.2b — sub-threshold work is written as controlled blocks, never one continuous effort.
+describe('sub-threshold rendering (§7.2b)', () => {
+  const spec = (durationMin: number, sport: 'run' | 'bike' = 'run') =>
+    ({ sport, purpose: 'threshold' as const, goalZone: 'S2' as const, durationMin });
+
+  it('renders repeated blocks with a float between them', () => {
+    const s = renderSession(spec(70));
+    const repeat = s.steps.find((el) => el.kind === 'repeat');
+    expect(repeat).toBeDefined();
+    expect((repeat as { count: number }).count).toBeGreaterThan(1);
+  });
+
+  // The block structure IS the intensity control — running each block too fast is the
+  // documented dominant error of athletes copying this method.
+  it('never renders the work above the session goal zone', () => {
+    const s = renderSession(spec(70));
+    const zones = JSON.stringify(s);
+    expect(zones).not.toContain('"S3"');
+  });
+
+  it('totals exactly the requested duration, for every slot length', () => {
+    for (const min of [25, 33, 40, 55, 70, 90]) {
+      const s = renderSession(spec(min));
+      expect(structureDurationSec(s.steps)).toBe(min * 60);
+    }
+  });
+
+  it('still produces one block when the slot is too short for two', () => {
+    const s = renderSession(spec(20));
+    const repeat = s.steps.find((el) => el.kind === 'repeat') as { count: number };
+    expect(repeat.count).toBe(1);
+    expect(structureDurationSec(renderSession(spec(20)).steps)).toBe(1200);
+  });
+
+  it('leaves a threshold swim to the swim-set renderer', () => {
+    const s = renderSession({ sport: 'swim', purpose: 'threshold', goalZone: 'S2', durationMin: 40 });
+    expect(structureDurationSec(s.steps)).toBe(2400);
+  });
+});

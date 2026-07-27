@@ -56,6 +56,10 @@ export function assemblePlan(input: PlanInput): PlanWeekResult[] {
       availability,
       // §2.4 governs intensity as well as ramp rate — see `MicroInput.confidence` (I15).
       confidence,
+      // §4.2 distribution shape + the §7.2b splitting gates.
+      course,
+      trainingAgeYears,
+      isLongCourse: course === 'long',
       ...(priorWeekLoad !== undefined ? { priorWeekLoad } : {}),
     });
     actual.push(week.sessions.reduce((a, s) => a + s.load, 0));

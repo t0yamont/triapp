@@ -118,12 +118,47 @@ export function renderSession(spec: SessionSpec): WorkoutStructure {
 
   if (purpose === 'vo2max') return fitVo2max(spec, totalSec);
   if (purpose === 'durability') return renderDurability(spec, totalSec);
+  if (purpose === 'threshold' && sport !== 'swim') return renderSubThreshold(spec, totalSec);
   if (sport === 'swim') return renderSwimSets(spec, totalSec);
 
   // aerobic_volume, recovery, technique and anything the planner doesn't yet emit: one
   // continuous effort at the goal zone. Deliberately not embellished — an easy run is an easy
   // run, and inventing structure for it would be inventing a prescription.
   return { ...base, steps: [step('steady', totalSec, goalZone)] };
+}
+
+/**
+ * Sub-threshold work as **controlled blocks**, not one continuous effort (§7.2b).
+ *
+ * The literature describes this work as repeated blocks — 6 × 10 min, or 3 × 10 min per half on
+ * a split day (Talsnes et al. 2024) — and the block structure is the intensity control: the
+ * short float between blocks is what stops the session drifting up into LT2, which is the
+ * documented dominant error of athletes copying this method.
+ *
+ * Rendered at the session's goal zone (S2), never at S3.
+ */
+function renderSubThreshold(spec: SessionSpec, totalSec: number): WorkoutStructure {
+  const base = { sport: spec.sport, purpose: spec.purpose, goalZone: spec.goalZone };
+  const { warmup, cooldown, workSec } = bookends(totalSec);
+
+  const blockAndFloat = SUBTHRESHOLD_BLOCK_SEC + SUBTHRESHOLD_FLOAT_SEC;
+  const reps = Math.max(1, Math.floor(workSec / blockAndFloat));
+
+  // Give any remainder back to the blocks so the structure still totals exactly `durationMin` —
+  // a structure that disagreed with the persisted duration would be two contradictory numbers.
+  const spare = workSec - reps * blockAndFloat;
+  const blockSec = SUBTHRESHOLD_BLOCK_SEC + Math.floor(spare / reps);
+  const tail = workSec - reps * (blockSec + SUBTHRESHOLD_FLOAT_SEC);
+
+  return {
+    ...base,
+    steps: [
+      warmup,
+      repeat(reps, [step('work', blockSec, spec.goalZone), step('recovery', SUBTHRESHOLD_FLOAT_SEC, 'S1')]),
+      // The remainder rides on the cooldown so the structure totals exactly `durationMin`.
+      step('cooldown', cooldown.durationSec + tail, 'S1'),
+    ],
+  };
 }
 
 function fitVo2max(spec: SessionSpec, totalSec: number): WorkoutStructure {
@@ -175,6 +210,13 @@ function fitVo2max(spec: SessionSpec, totalSec: number): WorkoutStructure {
     ],
   };
 }
+
+// §7.2b's block length. The literature describes this work as 10-minute blocks (6 × 10 min, or
+// 3 × 10 min per half on a split day — Talsnes et al. 2024), and the short float between them is
+// the intensity control that stops the session drifting up into LT2. Structural rather than a
+// dose claim, so it lives here and not in `constants.ts`.
+const SUBTHRESHOLD_BLOCK_SEC = 600;
+const SUBTHRESHOLD_FLOAT_SEC = 60;
 
 // Structural, not physiological: how a swim session is *written*, not a claim about training
 // effect. A pool set is broken by the wall, so "swim steadily for 40 minutes" is a prescription

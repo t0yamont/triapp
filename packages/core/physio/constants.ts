@@ -199,10 +199,21 @@ export const DECOUPLING_MAX_INTENSITY_CV = 0.1; // intensity SD <10% within each
 export const DECOUPLING_LONG_STOP_S = 120;
 export const DURABILITY_RACE_ESCALATION_WEEKS = 10; // long-course <10 wk from A race → escalate (§11.2)
 
-// ── Heat — Bayesian meta-regression, 211 papers (§7.4) ───────────────────────
+// ── Heat — McDonald et al. 2025, Comp Physiol 15(3):1–49 (211 papers) (§7.4) ──
 export const HEAT_EXPOSURES_RANGE = [8, 14] as const;
 export const HEAT_EXPOSURE_MIN_MINUTES = 60;
 export const HEAT_BLOCK_END_DAYS_BEFORE_RACE = [5, 10] as const;
+/**
+ * Heat adaptation decays without exposure: end-exercise HR adaptation at ≈2.3%/day and
+ * core-temperature adaptation at ≈2.6%/day — the spec rounds both to 2.5%/day (r2, §7.4).
+ * Re-induction is 8–12× faster than decay, which is why a top-up is cheap and a longer
+ * re-run of the block is not (Daanen et al. 2018, Sports Med 48:409–430).
+ */
+export const HEAT_DECAY_PCT_PER_DAY = 0.025;
+export const HEAT_RETENTION_TOPUP_THRESHOLD = 0.75;
+export const HEAT_REINDUCTION_SPEED_MULTIPLIER = 10; // 8–12× faster than decay
+/** >15 exposures produces more robust sudomotor adaptation than 8–14 (McDonald et al. 2025). */
+export const HEAT_LONG_REGIMEN_EXPOSURES = 15;
 // Passive post-session exposure (sauna / hot bath): 20–30 min, §7.4. Preferred because it
 // does not compromise prescribed training intensity.
 export const HEAT_PASSIVE_MINUTES = 25;
@@ -217,7 +228,7 @@ export const HEAT_PASSIVE_MINUTES = 25;
  */
 export const HEAT_TRIGGER_MARGIN_C = 3;
 
-// ── Strength — Eihara et al. 2022; Llanos-Lagos et al. 2024/2025; Zanini 2025 (§7.3) ─
+// ── Strength — Eihara et al. 2022; Llanos-Lagos et al. 2024; Zanini 2025 (§7.3) ─
 export const STRENGTH_SESSIONS_PER_WEEK = { base: 2, build: 2, peak: 1, taper: 1 } as const;
 export const STRENGTH_HEAVY_SETS = [3, 5] as const;
 export const STRENGTH_HEAVY_REPS = [4, 6] as const;
@@ -225,11 +236,45 @@ export const STRENGTH_HEAVY_PCT_1RM = [0.8, 0.85] as const;
 export const STRENGTH_BUILD_VOLUME_REDUCTION = 0.25; // Build/Peak trim ~25% off Base volume
 export const STRENGTH_MIN_HOURS_FROM_KEY_AEROBIC = 6;
 export const STRENGTH_TAPER_LOCKOUT_DAYS = 10; // no strength inside the final 10 days
+/**
+ * Strength emphasis is **speed-dependent** (r2, §7.3). Separating methods by the speed at
+ * which running economy was measured: heavy strength (>80% 1RM) was most effective at higher
+ * speeds (≈8.6–17.9 km/h), plyometric below ≈12 km/h, combined in the ≈10–14.5 km/h band
+ * (Llanos-Lagos et al. 2024, Sports Med 54:895–932). The engine knows each athlete's threshold
+ * pace, so it prescribes from their actual race-pace band rather than defaulting everyone to
+ * heavy compound work.
+ */
+export const STRENGTH_SPEED_BANDS_KMH = { plyoBelow: 12.0, combinedUpper: 14.5 } as const;
+/**
+ * Submaximal 40–79% 1RM loading — the "endurance rep" scheme that dominates consumer training
+ * apps — showed **no** effect on running economy at all, as did isometric work
+ * (Llanos-Lagos et al. 2024). Never prescribe below this.
+ */
+export const STRENGTH_MIN_HEAVY_LOAD_1RM = 0.8;
 
-// ── Intervals — Rønnestad & Hansen 2013 (bike); Fleckenstein et al. 2025 (run) ─
-// The sports genuinely diverge here; the engine must not share one template (§7.2).
+// ── Intervals — Rønnestad & Hansen 2013 + Almquist et al. 2020 (bike); ────────
+// Fleckenstein et al. 2025 (run). The sports genuinely diverge — same outcome measure,
+// opposite conclusions — which is the justification for a per-sport table, not a bug (§7.2).
 export const BIKE_VO2_SHORT = { work: 30, rest: 15, reps: 13, sets: 3, setRest: 180 } as const;
 export const RUN_VO2_LONG = { workMin: 3, workMax: 4, reps: [4, 6], recoveryRatio: 1.0 } as const;
+
+// ── Sub-threshold organisation — Casado et al. 2023; Talsnes et al. 2024 (§7.2b) ─
+/**
+ * The gating rules for same-day session splitting. The one controlled comparison found the
+ * **single long session produced the larger stimulus** (duration-dependent drift in HR, lactate
+ * and RPE; sRPE 7.0 vs 6.0) and the split day the **lower cost** (less next-morning fatigue)
+ * — Talsnes et al. 2024, Front Physiol 15:1428536.
+ *
+ * So splitting is only worth it if the athlete spends the saved cost on *more* volume.
+ * Splitting the same volume is a net reduction in stimulus, and is the failure mode these
+ * constants exist to prevent.
+ */
+export const SUBTHRESHOLD_SPLIT_MIN_WEEKLY_S2_MIN = 60;
+export const SUBTHRESHOLD_SPLIT_MIN_GAP_HOURS = 5;
+export const SUBTHRESHOLD_SPLIT_REQUIRED_VOLUME_INCREASE = 0.15;
+export const SUBTHRESHOLD_SPLIT_MIN_CONFIDENCE = 0.6;
+export const SUBTHRESHOLD_SPLIT_MIN_TRAINING_AGE_YEARS = 2;
+export const SUBTHRESHOLD_SPLIT_MIN_WEEKLY_HOURS = 8;
 
 // ── Critical power model fitting (§6.3) ──────────────────────────────────────
 export const CP_FIT_DURATION_RANGE_BIKE_S = [120, 900] as const;
@@ -302,6 +347,35 @@ export const DFA_A1_BOX_MAX = 16;
 export const DFA_A1_WINDOW_SECONDS = 120;
 export const DFA_A1_STEP_SECONDS = 30;
 export const DFA_A1_MULTI_WINDOW_DAYS = 21;
+/**
+ * **r2: the canonical stored value for a DFA-a1 threshold is power (bike) or grade-adjusted
+ * speed (run), not heart rate.** Test–retest reliability is materially better in power —
+ * ICC 0.87 (HRVT1) and 0.97 (HRVT2) — against typical errors of 8.8 and 4.1 bpm in HR
+ * (Sempere-Ruiz et al. 2024, Front Physiol 15:1329360). The HR value is *derived for display*
+ * and carries its own, lower, confidence.
+ */
+export const DFA_A1_CANONICAL_UNIT = 'power_or_pace' as const;
+/**
+ * Typical error in HR at threshold 1 / threshold 2 (Sheoran et al. 2024, J Sports Sci
+ * 42:2012–2020). Used to *size the aggregation window* and to state the spread honestly in the
+ * UI — never to claim accuracy. Sex and cardiorespiratory fitness moderate agreement, so no
+ * single population-level accuracy figure may be shown.
+ */
+export const DFA_A1_TYPICAL_ERROR_BPM = { t1: 6, t2: 8 } as const;
+/**
+ * Aggregation agreement window as a fraction of the power/pace value. r1 checked a ±6 bpm HR
+ * window, which is roughly *one typical error wide* and would have rejected valid agreement
+ * about as often as it caught noise (r2, §6.1).
+ */
+export const DFA_A1_MULTI_AGREEMENT_FRACTION = 0.04;
+/**
+ * Never raise. The method is actively disputed — Cassirame et al. 2025 question DFA-a1 for
+ * intensity monitoring, Gronwald et al. have published a direct rebuttal, and signal-to-noise
+ * and movement artefact materially influence agreement. DFA-a1 is a useful passive prior that
+ * *schedules a test*, not a replacement for one (§6.1).
+ */
+export const DFA_A1_CONFIDENCE_CEILING = 0.75;
+/** @deprecated r2 checks agreement on power/pace — see `DFA_A1_MULTI_AGREEMENT_FRACTION`. */
 export const DFA_A1_MULTI_HR_SPREAD_BPM = 6;
 
 // ── Resting HR derivation (§2.3) ─────────────────────────────────────────────

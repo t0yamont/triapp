@@ -4,17 +4,40 @@
 > Every constant is cited. Do not change one without reading the citation in
 > `REFERENCES.md` and logging the change in `DECISIONS.md`.
 
+> **Revision r2 — evidence review, July 2026.** This pass re-checked every load-bearing
+> citation against the primary source and added evidence the r1 draft was missing.
+> Nine substantive changes; see §17 for the full register with citations and the engine
+> consequence of each. Two were **corrections to overstated claims** (§0.1, §6.1), one
+> was a **capability gap** (§7.2b, sub-threshold work), and the rest were refinements
+> that make an existing rule more specific. No constant was changed without a source.
+
 ---
 
 ## 0. Design principles
 
 **0.1 — Anchor to thresholds, not to maxima.**
 Prescribing intensity as a percentage of a maximum (HRmax, VO₂max, peak power) produces
-markedly different physiological strain in different athletes at the same percentage.
-Prescribing relative to individual thresholds (LT1, LT2/critical power) produces more
-homogeneous acute responses and more consistent adaptation. This is the single most
-important design decision in the engine. *(Meyler et al. 2023; Meyler et al. 2025 —
-IPD meta-analysis, 42 studies, 1544 individuals; Iannetta et al. / Jamnick et al. 2020.)*
+markedly different physiological strain in different athletes at the same percentage: at
+a fixed 80% HRmax, individuals split across the moderate and heavy domains rather than
+sharing one *(Iannetta et al. 2020; Jamnick et al. 2020)*. Threshold-anchored prescription
+is the single most important design decision in the engine.
+
+**State the benefit precisely — r1 overstated it.** The individual-participant-data
+meta-analysis (42 studies, 1544 individuals) found threshold-anchored prescription
+produced a **larger mean VO₂max gain** (4.1 vs 1.8 mL·kg⁻¹·min⁻¹ in controlled studies)
+and a far **higher responder rate** (64% vs 16% exceeding a 1-MET minimum important
+difference). It explicitly did **not** find reduced variability of adaptation — the SD of
+change was equivalent (1.5 vs 1.7, BF = 0.55) *(Meyler et al. 2025, Sports Med
+55:301–323)*. Reduced *acute* response heterogeneity is demonstrated for the heavy/severe
+domain anchored to critical power *(Meyler et al. 2023, Exp Physiol 108:581–594)*, but at
+moderate intensity independent crossover work has found no variance advantage
+*(Pacitti et al. 2025; Shikaze et al. 2025)*.
+
+**Engine consequence.** Threshold anchoring is justified as *"more athletes adapt, and
+they adapt more"*, not as *"everyone responds the same"*. The engine must therefore keep
+per-athlete response tracking (§10.3) rather than assuming a well-anchored plan makes
+individual monitoring unnecessary. Copy in the UI must not promise consistency of
+outcome.
 
 **0.2 — %HRR is the presentation layer, thresholds are the model layer.**
 All heart-rate zones are *displayed* as %HRR (Karvonen) because that is what the athlete
@@ -289,13 +312,31 @@ training in trained athletes; the difference *between* polarised and pyramidal i
 and depends on athlete level and phase. There is reasonable evidence that sequencing
 matters more than choosing a side: a pyramidal block followed by a polarised block
 produced the largest improvements in VO₂max, threshold velocities and 5 km performance
-in well-trained runners *(Filipas et al. 2022)*. Recent meta-analytic work suggests
-polarised has a slight edge in elite athletes and pyramidal in recreational athletes
-*(Rosenblat et al. 2025; Rivera-Köfler et al. 2025)*. Below roughly 8 h/week the choice
-matters much less than consistency.
+in well-trained runners *(Filipas et al. 2022)*. The network meta-analysis of individual
+participant data suggests polarised has a slight edge in elite athletes and pyramidal in
+recreational athletes *(Rosenblat et al. 2025)*; a separate systematic review with
+meta-analysis found no consistent superiority of polarised over other distributions
+across the pooled literature *(Silva Oliveira et al. 2024, Sports Med 54:2071–2095)*, and
+a scoping review reached the same equivocal conclusion *(Rivera-Köfler et al. 2024/2025,
+J Strength Cond Res)*. Below roughly 8 h/week the choice matters much less than
+consistency.
+
+**Triathlon-specific evidence (added r2 — r1 argued the long-course case from
+first principles).** Two findings now support the asymmetry in §4.2 directly rather than
+by analogy from running:
+
+- In recreational triathletes preparing for a half-Ironman, athletes training with a
+  **pyramidal** distribution (≈78/19/3) outperformed those training polarised
+  (≈85/4/11), and time accumulated in zone 2 was the variable associated with better race
+  performance *(Sellés-Pérez et al. 2019, J Sports Sci Med)*. This is the closest direct
+  evidence available for the long-course peak decision below.
+- A world-class male triathlete's full 43-week Olympic-distance macrocycle ran at
+  ≈82/7/11 overall, with a **pyramidal shape early in the periodisation shifting to
+  polarised toward the end** *(Cejuela & Sellés-Pérez 2022, Front Physiol 13:835705)* —
+  the same sequencing the engine implements, observed in the target sport.
 
 **Decision:** phase-dependent distribution, pyramidal early, polarised late, modulated
-by event duration.
+by event duration. Unchanged from r1; now better evidenced.
 
 ### 4.2 Targets by phase (session-goal classification, % of weekly sessions)
 
@@ -440,9 +481,40 @@ within a 21-day window whose HR values span ≤6 bpm. Report the median.
 **Honesty requirement in the UI.** Agreement between HRV-derived thresholds and
 gas-exchange/lactate thresholds is good *on average* — mean bias around 1 bpm against
 VT1 — but the limits of agreement for an individual single test span roughly ±11–13 bpm
-*(systematic review of HRV-derived thresholds, 27 studies, 461 participants)*. That is a
-whole zone. **Never present a single-session DFA-a1 threshold as definitive.** Require
-aggregation, show the spread, and defer to field tests where they exist.
+*(Kaufmann et al. 2023, systematic review, 27 studies)*. That is a whole zone. **Never
+present a single-session DFA-a1 threshold as definitive.** Require aggregation, show the
+spread, and defer to field tests where they exist.
+
+**Store the threshold in power/pace, not in heart rate (changed in r2).** This is the
+single most useful implementation detail in the current reliability literature and r1
+missed it. Test–retest reliability of DFA-a1 thresholds is materially better when the
+threshold is expressed as **power output** than as heart rate: ICC 0.87 (HRVT1) and 0.97
+(HRVT2) in power, against typical errors of 8.8 and 4.1 bpm in HR *(Sempere-Ruiz et al.
+2024, Front Physiol 15:1329360)*. A larger sample reported ICC 0.76–0.86 with typical
+error of roughly **6 bpm at threshold 1 and 8 bpm at threshold 2** *(Sheoran et al. 2024,
+J Sports Sci 42:2012–2020)*.
+
+**Engine rules that follow:**
+
+1. The canonical stored value for a DFA-a1 threshold is **power (bike) or grade-adjusted
+   speed (run)**. The HR value is derived for display and carries its own, lower,
+   confidence.
+2. Aggregation tolerance for `dfa_a1_multi` is checked against the power/pace value, not
+   the ±6 bpm HR window r1 specified — that window is roughly one typical error wide and
+   would reject valid agreement as often as it caught noise.
+3. **Sex and cardiorespiratory fitness moderate agreement** with criterion thresholds
+   *(Sheoran et al. 2024)*. Do not report a single population-level accuracy figure in
+   the UI.
+4. DFA-a1 never overrides a field test within its validity window, at any confidence.
+
+**The method is actively disputed — do not present it as settled.** Cassirame et al.
+(2025, Eur J Appl Physiol 125:523–533) question the use of DFA-a1 and HRV thresholds for
+intensity monitoring generally; Gronwald and colleagues have published a direct
+methodological rebuttal, and other recent work identifies signal-to-noise ratio and
+movement artefact as major influences on agreement *(Gronwald et al. 2024; van Rassel et
+al. 2025)*. The engine's position: DFA-a1 is a **useful passive prior that schedules a
+test**, not a replacement for one. Its confidence ceiling (0.75) already encodes this and
+must not be raised.
 
 ### 6.2 Field tests (secondary, higher confidence)
 
@@ -473,10 +545,25 @@ t = W′ / (P − CP)          equivalently   P = W′/t + CP
 - Report goodness of fit; reject if R² < 0.95 or if W′ falls outside physiological
   bounds (bike: 5–35 kJ).
 - CP is the heavy/severe boundary and is a good, though not identical, proxy for LT2.
-  Label it as `criticalIntensity`, distinct from a measured `lt2`, and note in the UI
-  that CP typically sits slightly above maximal lactate steady state.
+  Label it as `criticalIntensity`, distinct from a measured `lt2`. **r2 nuance:** r1 told
+  the UI to say CP "sits slightly above MLSS". That is the conventional reading, but
+  it is contested — steady-state VO₂ has been demonstrated above MLSS, with the argument
+  that **critical speed better represents the true maximal metabolic steady state** in
+  well-trained runners *(Nixon et al. 2021, Eur J Appl Physiol 121:3133–3144;
+  Jones et al. 2019)*. Say "CP and MLSS are close but not interchangeable, and which sits
+  higher is unsettled" rather than asserting a direction.
 - Confidence `cp_model_fit` = 0.70, scaled down toward 0.5 as R² approaches the
   rejection threshold.
+
+**This passive approach is itself evidenced (citation missing in r1).** Deriving critical
+speed from ordinary training data rather than a dedicated test is validated: critical
+speed can be calculated from raw training files in recreational marathon runners
+*(Smyth & Muniz-Pumares 2020, Med Sci Sports Exerc 52:2637–2645)*, and remote,
+unsupervised determination of critical speed and critical power in recreational runners
+agrees acceptably with laboratory values *(Hunter et al. 2023, Int J Sports Physiol
+Perform 18:1449–1456)*. Field CP in cycling also agrees well with laboratory CP
+*(Karsten et al. 2013)*. §6.3 is the engine's best-supported no-test anchor and should be
+preferred over DFA-a1 wherever power or GPS data allow it.
 
 **W′ balance.** Where CP and W′ exist, compute W′ balance during severe-intensity
 sessions and use it to size intervals: an interval set should deplete 60–80% of W′ by
@@ -524,13 +611,23 @@ apply one rule to both.
 typically 3 sets of 13 repetitions with 3 min between sets) accumulates substantial time
 above 90% VO₂max at a higher mean power than 4–5 min intervals, and has produced
 superior adaptations in trained cyclists in several trials *(Rønnestad & Hansen 2013;
-Rønnestad et al. 2015, 2020)*.
+Rønnestad et al. 2015, 2020)*. Direct acute confirmation in elite cyclists: effort-matched
+30/15 work produced **14% higher mean power** (421 vs 371 W) and substantially longer time
+≥90% VO₂max (≈844 s vs ≈589 s) than 5-minute intervals, without a higher RPE
+*(Almquist et al. 2020, Scand J Med Sci Sports 30:1140–1150)*.
 
 **Running VO₂max — long intervals work better.** Applying the same logic to running does
 not transfer. Highly-trained runners accumulated substantially *less* time above 90%
 VO₂max with 24×30 s than with 4×3 min (≈201 s vs ≈328 s), despite the short intervals
-being run at higher intensity *(Fleckenstein et al. 2025)*. Time above 90% HRmax was
-higher in the short-interval condition, which is exactly why HR is a poor proxy here.
+being run at higher intensity *(Fleckenstein et al. 2025, Front Sports Act Living
+6:1507957)*. Time above 90% HRmax was higher in the short-interval condition, which is
+exactly why HR is a poor proxy here.
+
+**Note the shape of this evidence.** Almquist and Fleckenstein used the same outcome
+measure and reached opposite conclusions in different sports. That is not a contradiction
+to be resolved by picking a winner — it is the justification for the sport-specific table
+below. An engine that applied one interval rule across all three disciplines would be
+wrong in at least one of them.
 
 **Engine rule:**
 
@@ -543,6 +640,50 @@ higher in the short-interval condition, which is exactly why HR is a poor proxy 
 **Threshold sessions:** accumulate 20–45 min at or just below LT2, in blocks of 8–20 min.
 For long-course athletes, bias toward *sub*-threshold volume (upper Z3 / low Z4) with
 longer blocks and more total time, rather than fewer harder efforts.
+
+### 7.2b Sub-threshold volume and session splitting (new in r2)
+
+r1 had no explicit model for the most-discussed development in endurance training of the
+last five years. This section adds one, with the evidence stated honestly — which means
+being clear that the controlled evidence is thinner than the popular coverage implies.
+
+**What is actually established.** The lactate-guided sub-threshold approach associated
+with Norwegian distance running is characterised in the literature as high-volume
+low-intensity training with a large amount of **controlled** work near, but deliberately
+below, LT2 — frequently split into two shorter same-day sessions rather than one long one
+*(Casado, Foster, Bakken & Tjelta 2023, Int J Environ Res Public Health 20:3782;
+Kelemen et al. 2023, systematic review of 13 elite Norwegian runners)*. The descriptive
+data are consistent: ≈75–80% of volume at low intensity, with two to four threshold
+sessions per week, sometimes doubled in a day. These are **observational accounts of
+elite practice**, not controlled trials.
+
+**The one controlled comparison, and what it actually found.** Fourteen national-level
+endurance athletes (VO₂max 69.2 ± 4.2) performed one 6 × 10 min session and, on a separate
+day, two 3 × 10 min sessions 6.5 h apart — time- and intensity-matched. The **single long
+session produced the larger stimulus**: a duration-dependent upward drift in HR, lactate
+and RPE, higher sRPE (7.0 vs 6.0) and higher sRPE load (929 vs 743). The **split day cost
+less**: less fatigue and soreness the following morning *(Talsnes, Torvik, Skovereng &
+Sandbakk 2024, Front Physiol 15:1428536)*.
+
+**Read that carefully — it does not say splitting is better.** It says splitting buys a
+lower per-unit cost, which is only an advantage if the athlete uses it to accumulate
+*more total* sub-threshold volume across the week. Splitting the same volume into two
+sessions is a net reduction in stimulus. This is the failure mode to design against.
+
+**Engine rules:**
+
+| Condition | Behaviour |
+|---|---|
+| Weekly S2 target ≤ 60 min in a sport | Never split. One session; the drift is the point. |
+| Weekly S2 target > 60 min, athlete has ≥2 trainable slots on one day ≥5 h apart, and has declared availability for doubles | Splitting *permitted*, and only alongside a **≥15% increase in total weekly S2 volume** — otherwise the plan is strictly worse |
+| Split day scheduled | Both halves capped at the **sub**-threshold target (upper Z3 / low Z4), never at LT2. Running each half too fast is the documented dominant error |
+| Anchor confidence < 0.60 | No splitting. The method depends on precise intensity control the engine does not have |
+| Training age < 2 years, or weekly volume < 8 h | No splitting. All descriptive data come from athletes at 15–25 h/week with full recovery support |
+| Long-course athlete in Peak | Prefer the **single long session** — race-day durability is built by the drift the split day avoids (§11) |
+
+Sub-threshold volume is accounted as S2 and is bounded by the §4.2 distribution targets
+and G6 exactly as any other work. This section changes *how S2 is organised*, not how much
+of it there is.
 
 **Long sessions:** progressive duration under G2. From mid-Build onward, embed
 race-intensity blocks in the final third of long sessions — this is where durability is
@@ -557,18 +698,48 @@ a S3 session.
 Included, per D10. The evidence for heavy resistance training improving running economy
 is consistent and stronger than that for plyometric-dominant work (pooled effect on
 running economy g ≈ −0.32 for heavy resistance vs ≈ −0.13 for plyometrics)
-*(Eihara et al. 2022; Llanos-Lagos et al. 2024, 2025)*. There is also evidence that
-strength training improves economy specifically *under fatigue*, which is a durability
-mechanism *(Zanini et al. 2025)*.
+*(Eihara et al. 2022, Sports Med Open)*. There is also evidence that strength training
+improves economy specifically *under fatigue*, which is a durability mechanism
+*(Zanini et al. 2025)*.
 
-**Prescription:**
+**Two r2 corrections to expectations.**
 
-| Phase | Frequency | Emphasis |
+*First: the effect is speed-dependent, and the engine can act on that.* Separating methods
+by the speed at which economy was measured, heavy strength training (>80% 1RM) was most
+effective at **higher** speeds (≈8.6–17.9 km/h), plyometric training at speeds **below
+≈12 km/h**, and combined methods in the ≈10–14.5 km/h band. Submaximal loading
+(40–79% 1RM) and isometric work did **not** improve running economy at all
+*(Llanos-Lagos et al. 2024, Sports Med 54:895–932)*. Since the engine knows each athlete's
+threshold pace, it should prescribe by their actual race-pace band rather than defaulting
+every athlete to heavy compound work. A 4:45/km age-grouper and a 3:20/km athlete are not
+in the same evidence bucket.
+
+*Second: set expectations honestly.* A companion meta-analysis found **none** of the
+strength training methods improved VO₂max, velocity at VO₂max, maximal metabolic steady
+state or sprint capacity in middle- and long-distance runners *(Llanos-Lagos et al. 2024,
+Sports Med 54:1801–1833)*. Strength training earns its place through **economy and
+fatigue resistance**. The UI must not imply it raises threshold or aerobic capacity, and
+the engine must not schedule a test expecting it to.
+
+**Prescription — emphasis selected from the athlete's threshold running speed:**
+
+| Athlete's speed at LT2 | Primary emphasis | Secondary |
 |---|---|---|
-| Base | 2×/week | Heavy compound, 3–5 sets × 4–6 reps at ~80–85% 1RM, plus 1 plyometric block |
-| Build | 2×/week | Same, volume reduced ~25% |
+| < 12 km/h (≈>5:00/km) | Plyometric / reactive strength | Heavy compound, lower volume |
+| 12–14.5 km/h (≈4:08–5:00/km) | Combined heavy + plyometric | — |
+| > 14.5 km/h (≈<4:08/km) | Heavy compound | Plyometric block |
+| Unknown / confidence < 0.5 | Combined, conservative loading | Schedule the test |
+
+| Phase | Frequency | Volume |
+|---|---|---|
+| Base | 2×/week | Heavy work 3–5 sets × 4–6 reps at ~80–85% 1RM; plyometric block per table above |
+| Build | 2×/week | Same emphasis, volume reduced ~25% |
 | Peak | 1×/week | Maintenance, heavy but very low volume |
 | Taper | 1× in first taper week, none in final 10 days | |
+
+Never prescribe the 40–79% 1RM "endurance-rep" loading that dominates consumer training
+apps. On the economy outcome this product cares about, it has no demonstrated effect
+*(Llanos-Lagos et al. 2024)*.
 
 **Scheduling rules:** ≥6 h separation from a key aerobic session where possible; never
 the day before a key S3 session; never on a recovery day; lower-body strength never
@@ -579,17 +750,48 @@ within 48 h of a long run.
 Prescribed when a target race's expected wet-bulb conditions exceed the athlete's
 training-environment norm by a defined margin.
 
-Heat acclimation protocols in the literature average around **8 exposures of ~90 minutes
-at ~39 °C**, with protocols of ≥14 days producing larger effects than shorter ones
-*(Bayesian meta-regression across 211 papers; Tyler et al. 2016; Benjamin et al. 2019)*.
-Passive post-exercise heat exposure (sauna) is a lower-cost alternative that does not
-compromise training intensity, with supportive but weaker evidence.
+The r1 draft cited this as "Bayesian meta-regression, 211 papers" without naming it. The
+source is **McDonald et al. 2025, Comprehensive Physiology 15(3):1–49**, and its numbers
+are worth stating properly because they are unusually actionable:
 
-**Engine rule:** schedule a heat block of 8–14 exposures finishing 5–10 days before the
-race. Prefer post-session passive exposure (20–30 min sauna or hot bath) so that
-prescribed training intensity is unaffected. Reduce session intensity targets during
-active heat sessions — the athlete should not chase normal power in the heat, and the
-engine must not score them as under-performing for failing to.
+- Mean protocol characteristics across the literature: **8 ± 4 exposures, 90 ± 36 min per
+  exposure, 39.1 ± 4.8 °C**.
+- Pooled adaptations: end-exercise HR −17 bpm [−19, −14], end-exercise core temperature
+  −0.43 °C [−0.48, −0.36], plasma volume +5.6% [3.8, 7.0], whole-body sweat rate
+  +163 mL·h⁻¹ [94, 226], and **time-trial performance +3.1% [1.8, 4.5]**.
+- Dose–response per *additional* exposure is small but positive (haemoglobin mass +1.9 g;
+  sweat rate +9 mL·h⁻¹), and each additional 15 min per exposure lowers end-exercise core
+  temperature a further −0.04 °C. Longer regimens (>15 exposures) produce more robust
+  sudomotor adaptation than medium-term (8–14) or short-term (≤7) protocols
+  *(also Tyler et al. 2016)*.
+
+Passive post-exercise heat exposure (sauna) is a lower-cost alternative that does not
+compromise training intensity, with supportive but weaker evidence; exercise-based
+acclimation remains preferred on specificity grounds *(Périard et al. 2015)*.
+
+**Decay and re-induction — new in r2.** r1 scheduled a heat block and then forgot about
+it. Adaptation decays measurably: end-exercise HR adaptation is lost at ≈2.3% per day
+without exposure and core-temperature adaptation at ≈2.6% per day, i.e. **roughly 2.5% per
+decay day**. Re-induction is **8–12× faster** than decay for HR and core temperature
+*(Daanen et al. 2018, Sports Med 48:409–430)*.
+
+**Engine rules:**
+
+```
+heatAdaptationRetained(daysSinceLastExposure) = max(0, 1 − 0.025 × daysSinceLastExposure)
+```
+
+| Condition | Response |
+|---|---|
+| Race requires heat adaptation | Schedule 8–14 exposures ≥60 min, finishing 5–10 days before the race |
+| Retained adaptation projected < 0.75 on race day | Insert **top-up exposures** — re-induction is cheap, so 1–2 short exposures restore most of the loss |
+| Gap between block end and race > 10 days | Block is mis-placed; move it later rather than lengthening it |
+| Athlete has ≥15 exposures available and >6 weeks | Prefer the longer regimen for sweat-rate adaptation |
+| Active heat session prescribed | Reduce intensity targets; the athlete must not chase normal power in the heat, and the engine must not score them as under-performing for failing to |
+
+Model retention explicitly and show it to the athlete. A heat block that finished three
+weeks before the race has, on these numbers, largely evaporated — and an engine that
+silently assumes otherwise will produce over-confident race-day pacing guidance.
 
 ### 7.5 Fuelling
 
@@ -844,10 +1046,27 @@ that then poisons the plan for weeks — this is worse than no test).
 **Menstrual cycle.** Optional symptom and cycle-phase logging. The engine **does not**
 prescribe cycle-phase-based periodisation: current evidence for performance variation
 across the cycle is low-quality with trivial pooled effects, and prescribing from it
-would be inventing precision that does not exist *(McNulty et al. 2020)*. What the
-engine does: allow the athlete to log symptoms, feed those into subjective wellness in
-the readiness score, and permit flexible session movement. If future evidence supports
-more, revisit — the logging captures the data in the meantime.
+would be inventing precision that does not exist *(McNulty et al. 2020)*.
+
+**r2 re-check — the position holds, and is now better supported.** A 2025 systematic
+review restricted deliberately to studies meeting high methodological standards (verified
+cycle phase, hormonal confirmation) found that although 58% of studies reported a
+significant phase effect on at least one outcome, **the direction and magnitude varied
+between studies**, maximal and explosive strength were largely unaffected, and
+heterogeneity of phases and populations prevented systematic synthesis *(Elliott-Sale
+group / J Appl Physiol 139:650–667, 2025)*. Separately, current evidence shows **no
+influence of cycle phase on acute strength performance or on adaptation to resistance
+training** *(Colenso-Semple, D'Souza, Elliott-Sale & Phillips)*. There is still no basis
+for phase-based prescription.
+
+**Where the signal actually is: symptoms, not phase.** Qualitative synthesis of 17 studies
+found cycle-related *symptoms* consistently affected training and competition, and that
+athletes routinely adapt around or conceal them *(Systematic review and meta-aggregation,
+J Sci Med Sport 2025)*. This is exactly what the engine already models — symptoms feed
+subjective wellness in the readiness score (§10.1) and can trigger the normal
+downgrade-only response rules. Keep it that way: log symptoms, act on symptoms, do not
+prescribe from the calendar. The logging continues to capture phase data in the meantime
+in case the evidence base changes.
 
 **Age.** Athletes over 45 default to 2:1 loading cycles (G3) and a 24 h longer minimum
 recovery between S3 sessions.
@@ -892,6 +1111,15 @@ export const DFA_A1_LT1 = 0.75;
 export const DFA_A1_LT2 = 0.50;
 export const DFA_A1_MIN_SESSIONS_FOR_MULTI = 3;
 export const DFA_A1_MAX_ARTEFACT_PCT = 5;
+// r2: canonical storage is power/pace — reliability in PO is ICC 0.87/0.97 vs
+// typical error 8.8/4.1 bpm in HR (Sempere-Ruiz et al. 2024, Front Physiol 15:1329360).
+export const DFA_A1_CANONICAL_UNIT = 'power_or_pace';
+// Typical error in HR at threshold 1 / threshold 2 (Sheoran et al. 2024, J Sports Sci
+// 42:2012-2020). Used to size the aggregation window, NOT to claim accuracy.
+export const DFA_A1_TYPICAL_ERROR_BPM = { t1: 6, t2: 8 };
+// Aggregation agreement window, expressed in fraction of the power/pace value.
+export const DFA_A1_MULTI_AGREEMENT_FRACTION = 0.04;
+export const DFA_A1_CONFIDENCE_CEILING = 0.75;   // never raise; method is disputed
 
 // Zone construction
 export const Z2_WIDTH_BELOW_LT1_HRR = 0.08;   // presentation choice, not physiology
@@ -931,14 +1159,33 @@ export const HRV_ROLLING_DAYS = 7;
 export const DECOUPLING_TARGET_PCT = 5;
 export const DECOUPLING_MIN_SESSION_MIN = 75;
 
-// Heat — Bayesian meta-regression, 211 papers
+// Heat — McDonald et al. 2025, Comprehensive Physiology 15(3):1-49 (211 papers)
 export const HEAT_EXPOSURES_RANGE = [8, 14];
 export const HEAT_EXPOSURE_MIN_MINUTES = 60;
 export const HEAT_BLOCK_END_DAYS_BEFORE_RACE = [5, 10];
+// r2: decay/re-induction — Daanen et al. 2018, Sports Med 48:409-430
+export const HEAT_DECAY_PCT_PER_DAY = 0.025;
+export const HEAT_RETENTION_TOPUP_THRESHOLD = 0.75;
+export const HEAT_REINDUCTION_SPEED_MULTIPLIER = 10;   // 8-12x faster than decay
+export const HEAT_LONG_REGIMEN_EXPOSURES = 15;         // >15 = more robust sudomotor adaptation
 
-// Intervals — Rønnestad & Hansen 2013 (bike); Fleckenstein et al. 2025 (run)
+// Intervals — Rønnestad & Hansen 2013 + Almquist et al. 2020 (bike);
+// Fleckenstein et al. 2025 (run). The sports genuinely diverge — see §7.2.
 export const BIKE_VO2_SHORT = { work: 30, rest: 15, reps: 13, sets: 3, setRest: 180 };
 export const RUN_VO2_LONG = { workMin: 3, workMax: 4, reps: [4, 6], recoveryRatio: 1.0 };
+
+// Sub-threshold organisation (§7.2b) — Casado et al. 2023; Talsnes et al. 2024
+export const SUBTHRESHOLD_SPLIT_MIN_WEEKLY_S2_MIN = 60;
+export const SUBTHRESHOLD_SPLIT_MIN_GAP_HOURS = 5;
+export const SUBTHRESHOLD_SPLIT_REQUIRED_VOLUME_INCREASE = 0.15;
+export const SUBTHRESHOLD_SPLIT_MIN_CONFIDENCE = 0.60;
+export const SUBTHRESHOLD_SPLIT_MIN_TRAINING_AGE_YEARS = 2;
+export const SUBTHRESHOLD_SPLIT_MIN_WEEKLY_HOURS = 8;
+
+// Strength emphasis by threshold running speed (km/h) —
+// Llanos-Lagos et al. 2024, Sports Med 54:895-932
+export const STRENGTH_SPEED_BANDS_KMH = { plyoBelow: 12.0, combinedUpper: 14.5 };
+export const STRENGTH_MIN_HEAVY_LOAD_1RM = 0.80;  // 40-79% 1RM showed no economy effect
 
 // Critical power model fitting
 export const CP_FIT_DURATION_RANGE_BIKE_S = [120, 900];
@@ -966,3 +1213,52 @@ Stated explicitly so a future implementer does not "helpfully" add them:
   components. The athlete must be able to see that a 62 came from poor sleep rather than
   from HRV.
 - **No silent threshold upgrades.** Apparent fitness gains schedule a test.
+- **No cycle-phase periodisation.** §13, re-confirmed against 2025 evidence.
+- **No claim that strength training raises VO₂max or threshold.** §7.3.
+- **No same-volume session splitting.** §7.2b — splitting without adding volume is a net
+  reduction in stimulus.
+
+---
+
+## 17. Evidence register — r2 revision, July 2026
+
+Every change made in this pass, what it replaced, and why. An implementer who disagrees
+with one of these should argue with the citation, not with the table.
+
+| § | Change | Type | Source |
+|---|---|---|---|
+| 0.1 | Threshold anchoring justified as *larger mean gain + higher responder rate* (4.1 vs 1.8 mL·kg⁻¹·min⁻¹; 64% vs 16% above MID), **not** as reduced adaptation variability — the IPD meta-analysis found no variance difference (BF = 0.55) | **Correction** | Meyler et al. 2025, *Sports Med* 55:301–323; Meyler et al. 2023, *Exp Physiol* 108:581–594; Pacitti et al. 2025 |
+| 4.1 | Added direct triathlon evidence for the pyramidal long-course peak: 70.3 athletes training pyramidally outperformed polarised, with zone-2 time the associated variable; world-class triathlete macrocycle ran pyramidal→polarised | Evidence added | Sellés-Pérez et al. 2019, *J Sports Sci Med*; Cejuela & Sellés-Pérez 2022, *Front Physiol* 13:835705; Silva Oliveira et al. 2024, *Sports Med* 54:2071–2095 |
+| 6.1 | DFA-a1 thresholds now stored canonically in **power/pace**, not HR (ICC 0.87/0.97 in power vs typical error 8.8/4.1 bpm in HR); aggregation window re-specified; sex and fitness noted as moderators; method flagged as actively disputed | **Correction** | Sempere-Ruiz et al. 2024, *Front Physiol* 15:1329360; Sheoran et al. 2024, *J Sports Sci* 42:2012–2020; Cassirame et al. 2025, *EJAP* 125:523–533 + Gronwald rebuttal |
+| 6.3 | Passive CP/CS fitting given the citations it lacked; "CP sits above MLSS" softened to "close, direction unsettled" | Refinement | Smyth & Muniz-Pumares 2020, *MSSE* 52:2637–2645; Hunter et al. 2023, *IJSPP* 18:1449–1456; Nixon et al. 2021, *EJAP* 121:3133–3144 |
+| 7.2 | Added acute confirmation for the bike short-interval rule (14% higher power, 844 vs 589 s ≥90% VO₂max), framing the run/bike divergence as evidenced rather than asserted | Evidence added | Almquist et al. 2020, *Scand J Med Sci Sports* 30:1140–1150 |
+| 7.2b | **New section.** Sub-threshold volume and same-day session splitting, with gating rules. The controlled comparison found the *single long* session gave the larger stimulus and the split day the lower cost — so splitting is only permitted alongside a volume increase | **Capability gap** | Casado, Foster, Bakken & Tjelta 2023, *IJERPH* 20:3782; Talsnes et al. 2024, *Front Physiol* 15:1428536; Kelemen et al. 2023 |
+| 7.3 | Strength emphasis now selected by the athlete's threshold running speed (plyometric <12 km/h, combined 10–14.5, heavy >14.5); 40–79% 1RM loading banned; explicit statement that strength does not raise VO₂max or threshold | Refinement | Llanos-Lagos et al. 2024, *Sports Med* 54:895–932 and 54:1801–1833; Eihara et al. 2022 |
+| 7.4 | Meta-regression named and its effect sizes stated; **decay/re-induction model added** (≈2.5%/day loss, re-induction 8–12× faster) with a retention function and top-up rule | Refinement + gap | McDonald et al. 2025, *Comp Physiol* 15(3):1–49; Daanen et al. 2018, *Sports Med* 48:409–430 |
+| 13 | Cycle-phase position re-checked against 2025 high-methodological-standard evidence and confirmed; symptom-based handling reinforced as the evidenced route | Re-confirmed | *J Appl Physiol* 139:650–667 (2025); Colenso-Semple et al.; *J Sci Med Sport* 2025 meta-aggregation |
+
+### 17.1 Checked and left unchanged
+
+These r1 claims were verified against the primary source and are correct as written:
+HUNT HRmax equation and the Tanaka mislabelling note (§2.2); the ACWR rejection
+(§5.3, Impellizzeri); Foster monotony (§5.3); the taper volume-reduction band and
+intensity/frequency maintenance (§8.3, Bosquet 2007 / Wang 2023); Fleckenstein's run
+interval numbers (§7.2, reproduced exactly); the durability framing (§11, Maunder,
+Jones, Hunter); the HRV-guided downgrade-only asymmetry (§10.2).
+
+### 17.2 Known remaining gaps
+
+Stated so they are not mistaken for oversights:
+
+- **Sleep is modelled only as a readiness input**, never as a prescribable intervention.
+  The sleep-extension literature in athletes is small and mostly in team sports; the
+  engine has no defensible dose–response to implement. Revisit.
+- **Swimming is the thinnest-evidenced sport in this document.** CSS is well established,
+  but interval prescription in §7.2 rests on far weaker ground than the bike and run
+  rules. Treat swim prescriptions as lower-confidence by construction.
+- **The sub-threshold evidence base (§7.2b) is descriptive at elite level plus one acute
+  crossover trial.** No training intervention study has yet compared split versus single
+  organisation over a full block. The gating rules are deliberately conservative for that
+  reason and should be revisited when one exists.
+- **No triathlon-specific durability or brick-running trials** underpin §7.2's brick
+  rules; they remain reasoned from the durability literature rather than measured.

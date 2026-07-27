@@ -1258,3 +1258,98 @@ blocked athlete simply re-enters a better number and the engine ends up planning
 *and* has lost their trust. Warning keeps the honest answer valuable, which is what makes the
 rest of the adaptive system work. It also matches the framing already in the product: the
 shortfall is the plan doing its job, not the athlete being behind.
+
+---
+
+## Spec revision r2 — evidence review (27 July 2026)
+
+`03-ALGORITHM.md` was replaced with revision r2, which re-checked every load-bearing citation
+against the primary source. Nine substantive changes; §17 of the spec is the register. What the
+implementation did with each:
+
+### `D-R2-DFA-CANONICAL-UNIT` — DFA-a1 stores power/pace, not HR
+
+**Changed behaviour.** `aggregateDfaSingles` judged agreement on a ±6 bpm HR window. Reliability
+is materially better in power (ICC 0.87/0.97) than HR (typical error 8.8/4.1 bpm), and ±6 bpm is
+about *one typical error* wide — it rejected valid agreement roughly as often as it caught noise.
+Agreement is now ±4% of the median power/pace value.
+
+An HR-only estimate can no longer aggregate at all: falling back to the HR window would reinstate
+exactly the rule r2 removed, and there is nothing reliable left to agree on. `dfaHrSpreadBpm`
+exposes the honest ± for the UI, and the Settings anchors card now renders it. The 0.75 confidence
+ceiling is marked immovable in `constants.ts` — the method is actively disputed (Cassirame 2025 vs
+the Gronwald rebuttal) and is a passive prior that *schedules a test*, not a measurement.
+
+**One test changed meaning rather than being deleted**: "does not aggregate when HR spread exceeds
+6 bpm" became "aggregates despite a 9 bpm HR spread when power agrees", plus a new test that power
+disagreement still rejects. The old assertion encoded the rule r2 overturned.
+
+### `D-R2-HEAT-DECAY` — model retention, don't schedule and forget
+
+r1 scheduled a heat block and never revisited it. Adaptation decays ≈2.5%/day and re-induction is
+8–12× faster (Daanen 2018), so a block finishing three weeks out has largely evaporated — and an
+engine that assumes otherwise gives over-confident race-day pacing guidance. `heatAdaptationRetained`
+and `planHeatTopUp` are new; every prescribed block now carries its race-day projection, and the
+top-up is small by construction because re-induction is cheap. `preferLongRegimen` exposes the
+>15-exposure option for more robust sudomotor adaptation, off by default because the marginal gain
+per exposure is small even though positive.
+
+### `D-R2-STRENGTH-SPEED-BAND` — prescribe from the athlete's race pace
+
+r1 defaulted every athlete to heavy compound work. Separating methods by the speed economy was
+measured at, plyometric is the better method below ≈12 km/h and heavy above ≈14.5, with combined
+between (Llanos-Lagos 2024). The engine knows each athlete's threshold pace, so `strengthEmphasis`
+selects from it; unknown or low-confidence pace falls back to conservative combined work and
+schedules the test rather than guessing. A plyometric-emphasis athlete keeps the reactive block
+past Base, because for them it *is* the economy driver rather than a Base extra.
+
+40–79% 1RM loading is now explicitly refused (`STRENGTH_MIN_HEAVY_LOAD_1RM`): on the economy
+outcome this product cares about it has no demonstrated effect, and it is what dominates consumer
+training apps.
+
+### `D-R2-SUBTHRESHOLD-SPLIT` — the Norwegian method, gated
+
+§7.2b is new and had no r1 equivalent. `sessions/subthreshold.ts` implements the gating table;
+`plan/micro.ts` materialises the two halves.
+
+**The rule that matters is that splitting requires *more volume*.** The one controlled comparison
+found the single long session produced the **larger** stimulus and the split day only a lower
+cost — so splitting the same volume is a net reduction in stimulus. `halfDurationMin` therefore
+splits the *increased* total, never the original halved.
+
+Every gate returns a machine-readable refusal so an athlete one condition short of qualifying can
+be told which one. Both halves are capped at S2 and never at LT2: running each half too fast is
+the documented dominant error of athletes copying this method.
+
+`renderSubThreshold` writes the work as 10-minute blocks with a short float, which is both what
+the literature describes and the intensity control that stops the session drifting into LT2.
+
+### `D-S2-DISTRIBUTION-DEFERRED` — what was deliberately *not* done
+
+§7.2b presupposes S2 exists. It does not: `plan/micro.ts` emits S1 and S3 and nothing between, so
+§4.2's per-phase S2 share has been unreachable since the first commit.
+
+Implementing it was attempted and **reverted**. Making every week carry S2 destabilised the
+planner: S2 carries twice S1's TRIMP weight, so the load scaling moved every duration week to
+week, which tripped **G2 long-session growth on three of the 20 synthetic athletes** and pushed one
+recovery week under **G4's 55% floor**. The season simulation caught all of it — the gate working
+exactly as intended.
+
+That is a §4.2 design pass in its own right (it interacts with the load model, G2, G4 and G6), and
+r2 did not ask for it. So §7.2b is wired as **opt-in only**: it fires when the athlete has declared
+same-day doubles and clears every gate, and a plan for an athlete who has not opted in is identical
+to before. Migration `20260727140000` adds `doubles_declared` and `max_same_day_gap_hours`;
+onboarding asks for both, and never infers them — doubling is a life constraint before it is a
+training one.
+
+**Do not "fix" this by making S2 unconditional without doing the distribution work properly.**
+
+### `D-R2-COPY-CONSTRAINTS` — claims the UI may no longer make
+
+- Threshold anchoring means *more athletes adapt, and adapt more* — **not** that everyone responds
+  the same. The IPD meta-analysis found no variance reduction, so per-athlete response tracking
+  (§10.3) stays necessary and copy must not promise consistency of outcome.
+- Strength training must never be described as raising VO₂max, threshold or sprint capacity. It
+  earns its place through economy and fatigue resistance only.
+- CP/MLSS: "close but not interchangeable, and which sits higher is unsettled" — r1 told the UI to
+  assert that CP sits above MLSS, which is the conventional reading but is contested.

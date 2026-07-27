@@ -168,6 +168,13 @@ export function RaceAndAbilityForm({ onReady }: { onReady: (result: RaceAndAbili
             ...(avail.long_ride_day !== null ? { longRideDay: avail.long_ride_day } : {}),
             ...(avail.long_run_day !== null ? { longRunDay: avail.long_run_day } : {}),
             swimDays: avail.swim_days ?? [],
+            // §7.2b — carried through so the planner can decide whether sub-threshold work is
+            // one session or two. Absent here, the engine treats the athlete as unable to double
+            // and the plan is unchanged.
+            doublesDeclared: avail.doubles_declared,
+            ...(avail.max_same_day_gap_hours !== null
+              ? { maxSameDayGapHours: Number(avail.max_same_day_gap_hours) }
+              : {}),
           };
         }
 

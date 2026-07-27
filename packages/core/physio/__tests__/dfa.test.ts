@@ -151,8 +151,8 @@ describe('Threshold detection from windows (§6.1)', () => {
 
 describe('Aggregation single → multi (§6.1)', () => {
   const NOW = '2026-06-21T00:00:00Z';
-  function single(hr: number, measuredAt: string): Estimate<ThresholdPoint> {
-    return { value: { hr, power: 250 }, confidence: 0.5, provenance: 'dfa_a1_single', measuredAt };
+  function single(hr: number, measuredAt: string, power = 250): Estimate<ThresholdPoint> {
+    return { value: { hr, power }, confidence: 0.5, provenance: 'dfa_a1_single', measuredAt };
   }
 
   it('F4 — three sessions within 21 days spanning ≤6 bpm upgrade to dfa_a1_multi (0.75, median)', () => {
@@ -172,11 +172,42 @@ describe('Aggregation single → multi (§6.1)', () => {
     expect(aggregateDfaSingles([single(140, '2026-06-10T00:00:00Z')], NOW)).toBeUndefined();
   });
 
-  it('does not aggregate when HR spread exceeds 6 bpm', () => {
+  // r2 (§6.1): agreement is judged on power/pace, not HR. Reliability is materially better in
+  // power (ICC 0.87/0.97) than HR (typical error 8.8/4.1 bpm), and r1's ±6 bpm window was about
+  // one typical error wide — it rejected valid agreement roughly as often as it caught noise.
+  it('aggregates despite a 9 bpm HR spread when power agrees (r2 rule)', () => {
     const singles = [
       single(138, '2026-06-05T00:00:00Z'),
       single(143, '2026-06-12T00:00:00Z'),
-      single(147, '2026-06-18T00:00:00Z'), // spread 9 bpm
+      single(147, '2026-06-18T00:00:00Z'), // spread 9 bpm, power identical
+    ];
+    const multi = aggregateDfaSingles(singles, NOW)!;
+    expect(multi.provenance).toBe('dfa_a1_multi');
+    expect(multi.value.power).toBe(250);
+  });
+
+  it('does not aggregate when power disagrees beyond ±4%', () => {
+    const singles = [
+      single(142, '2026-06-05T00:00:00Z', 240),
+      single(143, '2026-06-12T00:00:00Z', 250),
+      single(144, '2026-06-18T00:00:00Z', 275), // +10% off the median
+    ];
+    expect(aggregateDfaSingles(singles, NOW)).toBeUndefined();
+  });
+
+  // Falling back to the HR window for an HR-only estimate would reinstate exactly the rule r2
+  // removed, so there is nothing reliable left to agree on and aggregation refuses.
+  it('does not aggregate HR-only estimates at all', () => {
+    const hrOnly = (hr: number, measuredAt: string): Estimate<ThresholdPoint> => ({
+      value: { hr },
+      confidence: 0.5,
+      provenance: 'dfa_a1_single',
+      measuredAt,
+    });
+    const singles = [
+      hrOnly(142, '2026-06-05T00:00:00Z'),
+      hrOnly(143, '2026-06-12T00:00:00Z'),
+      hrOnly(144, '2026-06-18T00:00:00Z'),
     ];
     expect(aggregateDfaSingles(singles, NOW)).toBeUndefined();
   });

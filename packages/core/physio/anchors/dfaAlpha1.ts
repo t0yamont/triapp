@@ -9,7 +9,14 @@
  * HONESTY REQUIREMENT (§6.1): a single-session DFA-a1 threshold has individual limits of
  * agreement of roughly ±11–13 bpm — a whole zone. Never present one as definitive:
  * `dfa_a1_single` carries confidence 0.50 and must aggregate (≥3 sessions) before it is
- * trusted (`dfa_a1_multi`, 0.75).
+ * trusted (`dfa_a1_multi`, 0.75, a ceiling that must never be raised).
+ *
+ * **r2 (§6.1): the canonical value is power/pace, not HR.** Test–retest reliability is
+ * materially better expressed as power (ICC 0.87/0.97) than as heart rate (typical error
+ * 8.8/4.1 bpm) — Sempere-Ruiz et al. 2024. The HR value is derived for display, aggregation
+ * agreement is judged on power/pace, and the method is presented as a passive prior that
+ * *schedules a test*, never as a settled measurement: it is actively disputed in the
+ * literature (Cassirame et al. 2025 vs the Gronwald rebuttal).
  *
  * Pure: no clock, no I/O. Time and RR streams are arguments.
  */
@@ -21,9 +28,10 @@ import {
   DFA_A1_LT2,
   DFA_A1_MAX_ARTEFACT_PCT,
   DFA_A1_MIN_SESSIONS_FOR_MULTI,
-  DFA_A1_MULTI_HR_SPREAD_BPM,
+  DFA_A1_MULTI_AGREEMENT_FRACTION,
   DFA_A1_MULTI_WINDOW_DAYS,
   DFA_A1_STEP_SECONDS,
+  DFA_A1_TYPICAL_ERROR_BPM,
   PROVENANCE_CONFIDENCE,
 } from '../constants.js';
 import { median } from './hrRest.js';
@@ -234,9 +242,26 @@ export function detectThresholdsFromWindows(
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Aggregate ≥3 accepted single-session estimates within a 21-day window whose HR values
- * span ≤6 bpm into a `dfa_a1_multi` estimate (confidence 0.75, value = median). Returns
- * undefined when the requirements are not met — a single noisy session is never trusted.
+ * The canonical value of a DFA-a1 estimate: power (bike) or grade-adjusted speed (run).
+ * Undefined for an HR-only estimate, which cannot be aggregated under the r2 rule.
+ */
+export function canonicalIntensity(estimate: Estimate<ThresholdPoint>): number | undefined {
+  return estimate.value.power ?? estimate.value.pace;
+}
+
+/**
+ * Aggregate ≥3 accepted single-session estimates within a 21-day window into a `dfa_a1_multi`
+ * estimate (confidence 0.75, value = median). Returns undefined when the requirements are not
+ * met — a single noisy session is never trusted.
+ *
+ * **Agreement is checked on power/pace, not on heart rate (r2, §6.1).** Reliability is
+ * materially better in power (ICC 0.87/0.97) than in HR (typical error 8.8/4.1 bpm), and r1's
+ * ±6 bpm HR window was roughly *one typical error wide* — it would have rejected valid
+ * agreement about as often as it caught noise. The window is now ±4% of the median
+ * power/pace value.
+ *
+ * An estimate carrying no power or pace at all cannot be aggregated: there is nothing reliable
+ * to agree on, and falling back to the HR window would reinstate the rule r2 removed.
  */
 export function aggregateDfaSingles(
   singles: Estimate<ThresholdPoint>[],
@@ -248,15 +273,21 @@ export function aggregateDfaSingles(
   );
   if (recent.length < DFA_A1_MIN_SESSIONS_FOR_MULTI) return undefined;
 
-  const hrs = recent.map((s) => s.value.hr);
-  if (Math.max(...hrs) - Math.min(...hrs) > DFA_A1_MULTI_HR_SPREAD_BPM) return undefined;
+  const canonical = recent.map(canonicalIntensity);
+  if (canonical.some((v) => v === undefined)) return undefined;
+  const values = canonical as number[];
+
+  const centre = median(values);
+  const tolerance = centre * DFA_A1_MULTI_AGREEMENT_FRACTION;
+  if (values.some((v) => Math.abs(v - centre) > tolerance)) return undefined;
 
   const paces = recent.map((s) => s.value.pace).filter((p): p is number => p !== undefined);
   const powers = recent.map((s) => s.value.power).filter((p): p is number => p !== undefined);
 
   return {
     value: {
-      hr: median(hrs),
+      // HR is derived for display and is deliberately *not* what agreement was judged on.
+      hr: median(recent.map((s) => s.value.hr)),
       ...(paces.length > 0 ? { pace: median(paces) } : {}),
       ...(powers.length > 0 ? { power: median(powers) } : {}),
     },
@@ -265,4 +296,16 @@ export function aggregateDfaSingles(
     measuredAt: now,
     sampleSize: recent.length,
   };
+}
+
+/**
+ * The honest spread to show beside a DFA-a1 heart rate (§6.1). Individual limits of agreement
+ * for a single session span roughly ±11–13 bpm, and typical error at threshold is 6 bpm (LT1)
+ * / 8 bpm (LT2) — a whole zone either way.
+ *
+ * Returned so the UI can render "±6 bpm" rather than a bare number. Aggregation narrows the
+ * *confidence*, not the underlying measurement error, so the spread is reported regardless.
+ */
+export function dfaHrSpreadBpm(threshold: 'lt1' | 'lt2'): number {
+  return threshold === 'lt1' ? DFA_A1_TYPICAL_ERROR_BPM.t1 : DFA_A1_TYPICAL_ERROR_BPM.t2;
 }

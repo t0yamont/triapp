@@ -16,6 +16,10 @@ export default function AvailabilityPage() {
   const [longRunDay, setLongRunDay] = useState<string>('');
   const [gymAccess, setGymAccess] = useState(false);
   const [saunaAccess, setSaunaAccess] = useState(false);
+  // §7.2b — same-day doubles are never inferred. Two questions, because "can you train twice"
+  // and "how far apart" gate differently: the split needs ≥5 h between the bouts.
+  const [doublesDeclared, setDoublesDeclared] = useState(false);
+  const [sameDayGapHours, setSameDayGapHours] = useState('');
   const [weeklyTarget, setWeeklyTarget] = useState('');
   const [weeklyMax, setWeeklyMax] = useState('');
   const [notes, setNotes] = useState('');
@@ -57,6 +61,8 @@ export default function AvailabilityPage() {
       long_run_day: longRunDay === '' ? null : Number(longRunDay),
       gym_access: gymAccess,
       sauna_access: saunaAccess,
+      doubles_declared: doublesDeclared,
+      max_same_day_gap_hours: doublesDeclared && sameDayGapHours !== '' ? Number(sameDayGapHours) : null,
       notes: notes || null,
     });
     setBusy(false);
@@ -149,6 +155,34 @@ export default function AvailabilityPage() {
             <label className="flex items-center gap-2 text-label text-muted">
               <input type="checkbox" checked={saunaAccess} onChange={(e) => setSaunaAccess(e.target.checked)} /> Sauna access
             </label>
+          </div>
+
+          {/* §7.2b. Off by default and never inferred — doubling is a life constraint before it
+              is a training one, and the engine refuses to split without an explicit yes. */}
+          <div className="flex flex-col gap-2 rounded-control border border-white/[0.06] bg-white/[0.02] p-4">
+            <label className="flex items-center gap-2 text-label text-muted">
+              <input
+                type="checkbox"
+                checked={doublesDeclared}
+                onChange={(e) => setDoublesDeclared(e.target.checked)}
+              />{' '}
+              I can sometimes train twice in one day
+            </label>
+            {doublesDeclared && (
+              <Field
+                label="Hours between those two sessions"
+                htmlFor="gap"
+                hint="At least 5 h for the plan to use it — a morning and an evening, not two back-to-back."
+              >
+                <Input
+                  id="gap"
+                  inputMode="decimal"
+                  value={sameDayGapHours}
+                  onChange={(e) => setSameDayGapHours(e.target.value)}
+                  placeholder="6"
+                />
+              </Field>
+            )}
           </div>
 
           <Field label="Notes (optional)" htmlFor="notes">

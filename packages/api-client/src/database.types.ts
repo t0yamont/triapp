@@ -303,6 +303,8 @@ export interface Database {
           swim_days: number[]
           long_ride_day: number | null
           long_run_day: number | null
+          doubles_declared: boolean
+          max_same_day_gap_hours: number | null
           gym_access: boolean
           sauna_access: boolean
           notes: string | null
@@ -316,6 +318,8 @@ export interface Database {
           swim_days?: number[]
           long_ride_day?: number | null
           long_run_day?: number | null
+          doubles_declared?: boolean
+          max_same_day_gap_hours?: number | null
           gym_access?: boolean
           sauna_access?: boolean
           notes?: string | null
@@ -329,6 +333,8 @@ export interface Database {
           swim_days?: number[]
           long_ride_day?: number | null
           long_run_day?: number | null
+          doubles_declared?: boolean
+          max_same_day_gap_hours?: number | null
           gym_access?: boolean
           sauna_access?: boolean
           notes?: string | null

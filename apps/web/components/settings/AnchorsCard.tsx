@@ -11,6 +11,7 @@
  */
 
 import { getCurrentAnchors } from '@ironflow/api-client';
+import { dfaHrSpreadBpm } from '@ironflow/core/physio';
 import { Card, ConfidenceDot } from '@ironflow/ui';
 import { useEffect, useState } from 'react';
 import { useSupabase } from '../../lib/supabase';
@@ -40,6 +41,17 @@ const PROVENANCE_LABEL: Record<string, string> = {
   user_entered: 'you entered it',
   overnight_mean: 'overnight average',
 };
+
+/**
+ * The ± spread to show beside an HRV-derived heart rate (§6.1), or null for an anchor measured
+ * some other way. Only DFA-a1 provenances carry it — a field-test LT2 is a different kind of
+ * number and borrowing HRV's error bars would misrepresent it.
+ */
+function spreadFor(a: { type: string; provenance: string }): number | null {
+  if (!a.provenance.startsWith('dfa_a1')) return null;
+  if (a.type !== 'lt1' && a.type !== 'lt2') return null;
+  return dfaHrSpreadBpm(a.type);
+}
 
 function daysAgo(iso: string, now: number): string {
   const days = Math.floor((now - new Date(iso).getTime()) / 86_400_000);
@@ -119,6 +131,13 @@ export function AnchorsCard() {
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="font-mono text-h2 tabular-nums text-text">{a.value.toFixed(meta.dp)}</span>
+                  {/* §6.1's honesty requirement: an HRV-derived threshold has a typical error of
+                      6–8 bpm — a whole zone — and must never be shown as a bare definitive
+                      number. Aggregation raises the *confidence*, not the measurement error, so
+                      the spread is shown either way. */}
+                  {spreadFor(a) !== null && (
+                    <span className="font-mono text-label tabular-nums text-faint">±{spreadFor(a)}</span>
+                  )}
                   <span className="text-label text-faint">{meta.unit}</span>
                 </div>
               </div>

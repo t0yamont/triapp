@@ -10,9 +10,11 @@
  */
 
 import { confidenceBehaviour } from '../confidence.js';
+import { distributionTarget } from '../distribution/policy.js';
 import { MAX_WEEKLY_S3_TIME_PCT, MAX_WEEKLY_S3_TIME_PCT_BASE, TRIMP_ZONE_WEIGHTS } from '../constants.js';
+import { planSubThresholdSplit, SPLIT_HALF_MAX_SZONE } from '../sessions/subthreshold.js';
 import type { SZone } from '../types.js';
-import type { GuardrailWeek, PlanPhase, PlanSport, SessionPurpose, WeekSession } from './types.js';
+import type { CourseType, GuardrailWeek, PlanPhase, PlanSport, SessionPurpose, WeekSession } from './types.js';
 
 export interface Availability {
   /** Minutes available per weekday (0 = Sun .. 6 = Sat). Missing/0 = unavailable. */
@@ -22,6 +24,16 @@ export interface Availability {
   longRideDay?: number;
   longRunDay?: number;
   swimDays?: number[];
+  /**
+   * The athlete has said they can train twice in one day (§7.2b). Off by default — same-day
+   * doubles are a real life constraint and the engine must never assume them.
+   */
+  doublesDeclared?: boolean;
+  /**
+   * Largest gap in hours between two trainable slots on a single day. §7.2b requires ≥5 h
+   * between the halves of a split sub-threshold session.
+   */
+  maxSameDayGapHours?: number;
 }
 
 export interface MicroInput {
@@ -40,6 +52,12 @@ export interface MicroInput {
    * computed and ==never consulted by the planner==.
    */
   confidence: number;
+  /** Years of consistent training. Gates §7.2b splitting; absent ⇒ treated as novice. */
+  trainingAgeYears?: number;
+  /** Long-course event — changes the §7.2b Peak preference toward the single long session. */
+  isLongCourse?: boolean;
+  /** Selects the §4.2 distribution target. Defaults to long-course, the more conservative shape. */
+  course?: CourseType;
 }
 
 const LONG_CAP_MIN = 240;
@@ -126,6 +144,56 @@ export function constructMicrocycle(input: MicroInput): GuardrailWeek {
       load: durationMin * TRIMP_ZONE_WEIGHTS[sZone],
       isHard: isS3,
     });
+  }
+
+  // ── §7.2b — sub-threshold volume, organised as one session or two ──────────
+  //
+  // **Opt-in only, and deliberately so.** The §4.2 S2 share has never been placed by this
+  // planner — it emits S1 and S3 and nothing between — so introducing S2 for *everyone* would
+  // be implementing §4.2's distribution, which r2 did not ask for. Tried once: it destabilised
+  // long-session growth (G2) and pushed a recovery week under G4's 55% floor across the
+  // 20-athlete season simulation, because S2 carries twice S1's TRIMP weight and the resulting
+  // load scaling moved every duration week to week. That is a real design pass, not a rider on
+  // this one — see `D-S2-DISTRIBUTION-DEFERRED`.
+  //
+  // What r2 *did* ask for is the Norwegian-method capability, which is gated on the athlete
+  // declaring same-day doubles. So the sub-threshold block is materialised only when every
+  // §7.2b gate passes, and a plan for an athlete who has not opted in is byte-identical to
+  // before. The intended volume comes from the phase's §4.2 target, which is what the split
+  // rule is defined against.
+  const intendedS2Min =
+    isRecoveryWeek || phase === 'recovery'
+      ? 0
+      : Math.round((sessions.reduce((a, s) => a + s.durationMin, 0) * distributionTarget(phase, input.course ?? 'long').S2) / 100);
+
+  const split = planSubThresholdSplit({
+    weeklyS2Min: intendedS2Min,
+    doublesDeclared: availability.doublesDeclared === true,
+    maxSameDayGapHours: availability.maxSameDayGapHours ?? 0,
+    confidence: input.confidence,
+    trainingAgeYears: input.trainingAgeYears ?? 0,
+    weeklyHours: availability.weeklyHoursMax,
+    phase,
+    isLongCourse: input.isLongCourse === true,
+  });
+
+  if (split.permitted) {
+    // Never the long session (its job is duration), never the S3 slot (its job is intensity),
+    // never a swim (§7.2b is a run/bike method and the swim library renders technique work).
+    const target = sessions.find(
+      (s) => s.sZone === 'S1' && s.dayOfWeek !== longDay && s.dayOfWeek !== s3Day && s.sport !== 'swim',
+    );
+    if (target) {
+      // Both halves are capped at the **sub**-threshold target and never at LT2: running each
+      // half too fast is the documented dominant error of athletes copying this method.
+      target.sZone = SPLIT_HALF_MAX_SZONE;
+      target.purpose = 'threshold';
+      target.durationMin = split.halfDurationMin;
+      target.load = split.halfDurationMin * TRIMP_ZONE_WEIGHTS[SPLIT_HALF_MAX_SZONE];
+      // The second half of the same day — the whole point is two bouts ≥5 h apart, and the
+      // volume is already the increased total, never the original halved.
+      sessions.push({ ...target });
+    }
   }
 
   // Scale down if we overshoot the ramp-capped target — never up (I5).

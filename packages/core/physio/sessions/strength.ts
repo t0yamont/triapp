@@ -3,8 +3,22 @@
  *
  * Heavy resistance training improves running economy with a consistent, larger effect than
  * plyometric-dominant work, and improves economy specifically *under fatigue* — a durability
- * mechanism (Eihara et al. 2022; Llanos-Lagos et al. 2024/2025; Zanini et al. 2025). The
- * scheduling rules exist so it never costs the aerobic work it is meant to support.
+ * mechanism (Eihara et al. 2022; Zanini et al. 2025). The scheduling rules exist so it never
+ * costs the aerobic work it is meant to support.
+ *
+ * **Two r2 corrections (§7.3).**
+ *
+ * 1. *The effect is speed-dependent, and the engine can act on it.* Separating methods by the
+ *    speed at which economy was measured, heavy strength was most effective at higher speeds,
+ *    plyometric below ≈12 km/h, combined in the ≈10–14.5 km/h band — and submaximal 40–79% 1RM
+ *    loading did **not** improve economy at all (Llanos-Lagos et al. 2024, Sports Med
+ *    54:895–932). Since the engine knows the athlete's threshold pace, it prescribes from their
+ *    band. A 4:45/km age-grouper and a 3:20/km athlete are not in the same evidence bucket.
+ * 2. *Expectations, honestly.* A companion meta-analysis found **none** of the strength methods
+ *    improved VO₂max, velocity at VO₂max, maximal metabolic steady state or sprint capacity
+ *    (Llanos-Lagos et al. 2024, Sports Med 54:1801–1833). Strength earns its place through
+ *    economy and fatigue resistance only — the UI must not imply otherwise, and the engine must
+ *    never schedule a test expecting strength work to have raised a threshold.
  */
 
 import {
@@ -14,9 +28,62 @@ import {
   STRENGTH_HEAVY_SETS,
   STRENGTH_MIN_HOURS_FROM_KEY_AEROBIC,
   STRENGTH_SESSIONS_PER_WEEK,
+  STRENGTH_SPEED_BANDS_KMH,
   STRENGTH_TAPER_LOCKOUT_DAYS,
 } from '../constants.js';
 import type { PlanPhase } from '../plan/types.js';
+
+/** Which method the athlete's race-pace band supports (§7.3). */
+export type StrengthEmphasis = 'plyometric' | 'combined' | 'heavy';
+
+export interface StrengthEmphasisResult {
+  emphasis: StrengthEmphasis;
+  /** The lower-volume method run alongside it, where one is indicated. */
+  secondary?: StrengthEmphasis;
+  /** True when threshold speed is unknown or too poorly known to prescribe from. */
+  conservative: boolean;
+  reasonText: string;
+}
+
+/**
+ * Pick the emphasis from the athlete's speed at LT2, in km/h.
+ *
+ * Unknown speed — or anchor confidence below 0.5 — falls back to combined work at conservative
+ * loading and schedules the test, rather than defaulting everyone to heavy compound lifting the
+ * way r1 did.
+ */
+export function strengthEmphasis(thresholdSpeedKmh?: number, anchorConfidence = 1): StrengthEmphasisResult {
+  if (thresholdSpeedKmh === undefined || anchorConfidence < 0.5) {
+    return {
+      emphasis: 'combined',
+      conservative: true,
+      reasonText:
+        'We don’t know your threshold pace well enough yet, so strength work stays combined and conservative until a test settles it.',
+    };
+  }
+  if (thresholdSpeedKmh < STRENGTH_SPEED_BANDS_KMH.plyoBelow) {
+    return {
+      emphasis: 'plyometric',
+      secondary: 'heavy',
+      conservative: false,
+      reasonText:
+        'At your race pace, reactive and plyometric work is what improves running economy most — heavy lifting stays in, at lower volume.',
+    };
+  }
+  if (thresholdSpeedKmh <= STRENGTH_SPEED_BANDS_KMH.combinedUpper) {
+    return {
+      emphasis: 'combined',
+      conservative: false,
+      reasonText: 'Your race pace sits in the band where combined heavy and plyometric work has the strongest evidence.',
+    };
+  }
+  return {
+    emphasis: 'heavy',
+    secondary: 'plyometric',
+    conservative: false,
+    reasonText: 'At your race pace, heavy compound lifting is the method with the clearest economy benefit.',
+  };
+}
 
 export interface StrengthPrescription {
   sessionsPerWeek: number;
@@ -28,11 +95,23 @@ export interface StrengthPrescription {
   /** Fraction the phase trims from Base volume (0 = full). */
   volumeReduction: number;
   note: string;
+  /** Which method leads, from the athlete's threshold speed (r2, §7.3). */
+  emphasis?: StrengthEmphasisResult;
 }
 
-/** The §7.3 prescription for a phase. Race week and the final taper days carry none. */
-export function strengthPrescription(phase: PlanPhase): StrengthPrescription | null {
+/**
+ * The §7.3 prescription for a phase. Race week and the final taper days carry none.
+ *
+ * `thresholdSpeedKmh` and `anchorConfidence` select the emphasis; omit them and the
+ * prescription is the conservative combined default with a test scheduled.
+ */
+export function strengthPrescription(
+  phase: PlanPhase,
+  thresholdSpeedKmh?: number,
+  anchorConfidence = 1,
+): StrengthPrescription | null {
   const heavy = { sets: STRENGTH_HEAVY_SETS, reps: STRENGTH_HEAVY_REPS, pct1RM: STRENGTH_HEAVY_PCT_1RM };
+  const emphasis = strengthEmphasis(thresholdSpeedKmh, anchorConfidence);
 
   switch (phase) {
     case 'base':
@@ -42,14 +121,18 @@ export function strengthPrescription(phase: PlanPhase): StrengthPrescription | n
         includesPlyometrics: true,
         volumeReduction: 0,
         note: 'Heavy compound lifting plus one plyometric block — the biggest economy gains come from this phase.',
+        emphasis,
       };
     case 'build':
       return {
         ...heavy,
         sessionsPerWeek: STRENGTH_SESSIONS_PER_WEEK.build,
-        includesPlyometrics: false,
+        // A plyometric-emphasis athlete keeps the reactive block past Base: for them it is the
+        // primary economy driver, not the optional extra it is for a fast runner (r2, §7.3).
+        includesPlyometrics: emphasis.emphasis === 'plyometric',
         volumeReduction: STRENGTH_BUILD_VOLUME_REDUCTION,
-        note: 'Same heavy lifting, volume trimmed ~25% to protect the aerobic work.',
+        note: 'Same lifting, volume trimmed ~25% to protect the aerobic work.',
+        emphasis,
       };
     case 'peak':
       return {
@@ -58,6 +141,7 @@ export function strengthPrescription(phase: PlanPhase): StrengthPrescription | n
         includesPlyometrics: false,
         volumeReduction: STRENGTH_BUILD_VOLUME_REDUCTION,
         note: 'Maintenance only — heavy, but very low volume. You keep the adaptation without the fatigue.',
+        emphasis,
       };
     case 'taper':
       return {
@@ -66,6 +150,7 @@ export function strengthPrescription(phase: PlanPhase): StrengthPrescription | n
         includesPlyometrics: false,
         volumeReduction: STRENGTH_BUILD_VOLUME_REDUCTION,
         note: 'One session in the first taper week, then nothing inside the final 10 days.',
+        emphasis,
       };
     case 'recovery':
     case 'race_week':

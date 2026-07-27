@@ -15,6 +15,8 @@ function DecouplingChart({ trend }: { trend: number[] }) {
   const limitY = y(DECOUPLING_LIMIT_PCT);
 
   const pts = trend.map((v, i) => [x(i), y(v)] as const);
+  // Path commands, not `points`: this string is also spliced into `areaPath` below. Feeding it
+  // to a <polyline> is what silently dropped the line — `points` takes bare pairs and rejects `L`.
   const line = pts.map(([X, Y]) => `${X.toFixed(1)},${Y.toFixed(1)}`).join(' L ');
   const areaPath = `M ${pts[0]![0].toFixed(1)},${H} L ${line} L ${pts[n - 1]![0].toFixed(1)},${H} Z`;
   const last = pts[n - 1]!;
@@ -30,8 +32,8 @@ function DecouplingChart({ trend }: { trend: number[] }) {
       </defs>
       <line x1={px} y1={limitY} x2={W - px} y2={limitY} stroke="rgba(244,183,64,0.5)" strokeWidth="1" strokeDasharray="4 3" />
       <path d={areaPath} fill="url(#dec-fill)" />
-      <polyline
-        points={`M ${line}`.slice(2)}
+      <path
+        d={`M ${line}`}
         fill="none"
         stroke={overLimit ? '#F4B740' : '#35D6A4'}
         strokeWidth="2"

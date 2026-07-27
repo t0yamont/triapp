@@ -15,6 +15,8 @@ function TsbChart({ series }: { series: FitnessPoint[] }) {
   const zeroY = y(0);
 
   const pts = values.map((v, i) => [x(i), y(v)] as const);
+  // Path commands, not `points`: this string is also spliced into `areaPath` below. Feeding it
+  // to a <polyline> is what silently dropped the line — `points` takes bare pairs and rejects `L`.
   const line = pts.map(([X, Y]) => `${X.toFixed(1)},${Y.toFixed(1)}`).join(' L ');
   const areaPath = `M ${pts[0]![0].toFixed(1)},${zeroY.toFixed(1)} L ${line} L ${pts[n - 1]![0].toFixed(1)},${zeroY.toFixed(1)} Z`;
   const last = pts[n - 1]!;
@@ -29,7 +31,7 @@ function TsbChart({ series }: { series: FitnessPoint[] }) {
       </defs>
       <line x1={px} y1={zeroY} x2={W - px} y2={zeroY} stroke="rgba(255,255,255,0.14)" strokeWidth="1" />
       <path d={areaPath} fill="url(#tsb-fill)" />
-      <polyline points={`M ${line}`.slice(2)} fill="none" stroke="#F4B740" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <path d={`M ${line}`} fill="none" stroke="#F4B740" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
       <circle cx={last[0]} cy={last[1]} r="3.5" fill="#F4B740" stroke="#0B0D14" strokeWidth="1.5" />
     </svg>
   );
